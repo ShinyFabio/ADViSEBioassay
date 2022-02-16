@@ -7,17 +7,20 @@
 #' @importFrom dplyr select mutate left_join
 #' @importFrom readxl read_excel
 #' @importFrom tidyr gather unite
+#' @importFrom janitor remove_empty
 #'
 
-read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan="Single",sample.anno=NULL,sep=",",filter.na="Product"){
+read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan="Single", wave, sample.anno=NULL,sep=",",filter.na="Product"){
   
   #print("Reading raw data")
   if (scan=="Single") {
     if (instrument=="EZ_READ_2000") {
-      mydata <- as.data.frame(readxl::read_excel(paste0(path,ifile), sheet = "Results")) %>%
-        dplyr::select(Well,where(is.double))
+      
+      mydata <- readxl::read_excel(paste0(path,ifile), sheet = "Results") %>% janitor::remove_empty(which = c("rows", "cols")) %>% 
+        as.data.frame() %>%dplyr::select(Well,where(is.double))
     } else if (instrument=="4300_CHROMATE_PLATE_READER"){
-      my_tibble <- as.data.frame(readxl::read_excel(paste0(path,ifile),  col_names = as.character(seq(1,12))))
+      my_tibble <- readxl::read_excel(paste0(path,ifile),  col_names = as.character(seq(1,12))) %>% janitor::remove_empty(which = c("rows", "cols")) %>% 
+        as.data.frame()
       my_tibble$row <- LETTERS[seq( from = 1, to = 8 )]
       mydata <- my_tibble %>% tidyr::gather(column, value, 1:12) %>% 
         tidyr::unite("Well", c(row,column),sep="")
@@ -27,15 +30,19 @@ read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan=
     }
   } else if (scan=="Double") {
     if (instrument=="EZ_READ_2000") {
-      mydata <- as.data.frame(readxl::read_excel(paste0(path,ifile), sheet = "Results")) %>%
-        dplyr::select(Well,where(is.double))
-      mydata <-  mydata %>% dplyr::mutate(value=A450-A660) %>% 
+      mydata <- readxl::read_excel(paste0(path,ifile), sheet = "Results") %>% janitor::remove_empty(which = c("rows", "cols")) %>%
+        as.data.frame() %>% dplyr::select(Well,where(is.double))
+      wave = stringr::str_split(wave, ",", simplify = T)
+      mydata <-  mydata %>% dplyr::mutate(value= !!sym(wave[1])-!!sym(wave[2])) %>% 
         dplyr::select(Well, value)
+      
     } else if (instrument=="4300_CHROMATE_PLATE_READER"){
       ifile450=unlist(strsplit(ifile, sep))[1]
       ifile630=unlist(strsplit(ifile, sep))[2]
-      my_tibble450 <- as.data.frame(readxl::read_excel(paste0(path,ifile450),  col_names = as.character(seq(1,12))))
-      my_tibble630 <- as.data.frame(readxl::read_excel(paste0(path,ifile630),  col_names = as.character(seq(1,12))))
+      my_tibble450 <- readxl::read_excel(paste0(path,ifile450),  col_names = as.character(seq(1,12))) %>% 
+        janitor::remove_empty(which = c("rows", "cols")) %>% as.data.frame()
+      my_tibble630 <- readxl::read_excel(paste0(path,ifile630),  col_names = as.character(seq(1,12))) %>% 
+        janitor::remove_empty(which = c("rows", "cols")) %>% as.data.frame()
       my_tibble=my_tibble450-my_tibble630
       my_tibble$row <- LETTERS[seq( from = 1, to = 8 )]
       mydata <- my_tibble %>% tidyr::gather(column, value, 1:12) %>% 

@@ -18,7 +18,8 @@ summarise_cytoxicity = function(X, group , method="mean"){
       dplyr::summarise(
         Cytoxicity.average = mean(Cytoxicity, na.rm=TRUE),
         Cytoxicity.sd = sd(Cytoxicity,na.rm = TRUE),
-        Cytoxicity.nreps =n()
+        Cytoxicity.nreps =n(),
+        Vitality.average = mean(Vitality, na.rm=TRUE),
       ) %>% dplyr::ungroup()
   }
 

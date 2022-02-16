@@ -16,7 +16,7 @@
 #' @param unit_legend An unit label for the legend. If data are scaled will be "Z-score" otherwise will be the input.
 #' @param col_label_size Size of the column labels. By default col_label_size = 10.
 #'
-#' @importFrom dplyr select arrange across left_join
+#' @importFrom dplyr select arrange across left_join all_of
 #' @importFrom stats dist hclust as.dendrogram setNames
 #' @importFrom dendextend color_branches
 #' @importFrom ComplexHeatmap HeatmapAnnotation Heatmap draw ht_opt
@@ -38,12 +38,15 @@ make_heatmap = function(data,
                         order_data = TRUE,
                         row_dend = TRUE, 
                         row_nclust = 2, 
-                        col_dend = TRUE, 
+                        col_dend = FALSE, 
                         col_nclust = 3, 
                         dist_method = "euclidean", 
                         clust_method = "ward.D2", 
                         unit_legend = "% toxicty",
-                        col_label_size = 8){
+                        col_label_size = 8,
+                        color_scale = circlize::colorRamp2(c(0, 100), c("white", "blue")),
+                        add_values = FALSE,
+                        typeeval_heat = "Cytoxicity.average"){
   
 #data = dplyr::arrange(data, Product_Family)
 
@@ -54,15 +57,15 @@ if(order_data == TRUE){
   x <- c("CTRL 0", "MEKinhibitor 46.5", "CISPLATIN 30", "DOXORUBICIN 54.4", unique(data$Product[!grepl("CTRL", data$Product_Family)]))
   
   data = data %>%
-    mutate(Product =  factor(Product, levels = x)) %>%
-    arrange(Product) %>%
-    mutate(Product =  as.character(Product))
+    dplyr::mutate(Product =  factor(Product, levels = x)) %>%
+    dplyr::arrange(Product) %>%
+    dplyr::mutate(Product =  as.character(Product))
 }
 
 
 
-temp = data %>% dplyr::select(Product, Model_type, Cytoxicity.average) %>% 
-  tidyr::pivot_wider( names_from = "Product", values_from = "Cytoxicity.average") %>% 
+temp = data %>% dplyr::select(Product, Model_type, dplyr::all_of(typeeval_heat)) %>%
+  tidyr::pivot_wider( names_from = "Product", values_from = typeeval_heat) %>%
   tibble::column_to_rownames("Model_type")
 
 
@@ -142,7 +145,7 @@ if(!is.null(add_rowannot)){
 
 #col annotation
 if(!is.null(add_colannot)){
-  annotdata_col = data %>% dplyr::select(Product, add_colannot) %>% distinct() %>% tibble::column_to_rownames("Product")
+  annotdata_col = data %>% dplyr::select(Product, add_colannot) %>% dplyr::distinct() %>% tibble::column_to_rownames("Product")
   leng_col = annotdata_col %>% table() %>% length()
   colorannot_col = stats::setNames(getPalette(leng_col), c(row.names(table(annotdata_col))))
   colorannot_col = stats::setNames(list(colorannot_col), paste(add_colannot))
@@ -155,6 +158,13 @@ if(!is.null(add_colannot)){
 #aggiungi spazio tra annotazione e heatmap
 ComplexHeatmap::ht_opt(ROW_ANNO_PADDING = grid::unit(4, "mm"), COLUMN_ANNO_PADDING = grid::unit(4, "mm"))
 
+if(add_values == TRUE){
+  cell_values = function(j, i, x, y, width, height, fill) {
+    grid::grid.text(sprintf("%.0f", as.matrix(temp)[i, j]), x, y, gp = grid::gpar(fontsize = 10))
+  }
+}else{
+  cell_values = NULL
+}
 
 ht = ComplexHeatmap::Heatmap(as.matrix(temp), name = unit_legend, rect_gp = grid::gpar(col = "white", lwd = 1), 
                              row_title = "Model type", column_title = title, 
@@ -163,7 +173,8 @@ ht = ComplexHeatmap::Heatmap(as.matrix(temp), name = unit_legend, rect_gp = grid
                              left_annotation = row_ha, bottom_annotation = col_ha,
                              column_split = col_split, row_split = row_split,
                              row_gap = grid::unit(2, "mm"), column_gap = grid::unit(2, "mm"), #spazio tra le divisioni
-                             col = circlize::colorRamp2(c(0, 100), c("white", "blue"))
+                             col = color_scale,
+                             cell_fun = cell_values
 )
 
 

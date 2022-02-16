@@ -9,6 +9,7 @@ read_cytoxicity(
   path = getwd(),
   instrument = "EZ_READ_2000",
   scan = "Single",
+  wave,
   sample.anno = NULL,
   sep = ",",
   filter.na = "Product"

@@ -77,6 +77,7 @@ app_ui <- function(request) {
           sidebarLayout(
             sidebarPanel(
               width = 3,
+              selectInput("typeeval_bar", "Select a measure", choices = c("Cytoxicity", "Vitality")),
               selectInput("model_filt_bar", "Filter Model type", choices = ""),
               selectInput("family_filt_bar", "Filter Product Family", choices = ""),
               fluidRow(
@@ -88,6 +89,7 @@ app_ui <- function(request) {
               conditionalPanel(
                 condition = "output.show_barplot2 == true",
                 br(),
+                selectInput("typeeval_bar2", "Select a measure", choices = c("Cytoxicity", "Vitality")),
                 selectInput("model_filt_bar2", "Filter Model type", choices = ""),
                 selectInput("family_filt_bar2", "Filter Product Family", choices = ""),
                 fluidRow(
@@ -116,6 +118,7 @@ app_ui <- function(request) {
           sidebarLayout(
             sidebarPanel(
               width = 3,
+              selectInput("typeeval_spid", "Select a measure", choices = c("Cytoxicity", "Vitality")),
               selectInput("model_filt_spid", "Filter Model type", choices = ""),
               selectInput("family_filt_spid", "Filter Product Family", choices = ""),
               selectInput("dose_filt_spid", "Filter dose", choices = ""),
@@ -151,11 +154,25 @@ app_ui <- function(request) {
                      div(actionButton("makeheatmap", label = "Make Heatmap", class = "btn btn-primary btn-lg", width = "140px", style='padding:5px; font-size:130%; font-weight: bold;'), align= "center"),
                      br(),
                      h4(strong("Data filtering")),
+                     selectInput("typeeval_heat", "Select a measure", choices = c("Cytoxicity", "Vitality")),
                      fluidRow(
                        column(6, selectInput("prod_filt_heatmap", "Filter Product Family", choices = "")),
                        column(6, selectInput("mod_filt_heatmap", "Filter Model type", choices = "",multiple = TRUE))
                      ),
-                     radioButtons("filt_dose", "Filter dose", choices = "",inline = TRUE),
+                     fluidRow(
+                       column(6, selectInput("dose_op_heatmap", "Operation with doses", choices = c("filter", "mean", "subtract"))),
+                       
+                       conditionalPanel(
+                         condition = "input.dose_op_heatmap == 'filter'",
+                         column(6, radioButtons("filt_dose", "Filter dose", choices = "",inline = TRUE))
+                       ),
+                       
+                       conditionalPanel(
+                         condition = "input.dose_op_heatmap == 'subtract'",
+                         column(4, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
+                         column(1, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt")))
+                       )
+                     ),
                      #awesomeCheckbox("logheat", "Log2 scale", value = FALSE),
                      # fluidRow(
                      #   column(6,
@@ -168,6 +185,8 @@ app_ui <- function(request) {
                      #   )
                      # ),
                      hr(),
+                     fluidRow(column(5, style="padding-top: 5px;", awesomeCheckbox("show_valheat", "Show cell values")),
+                              column(7, downloadButton("download_heat", "Download data heatmap"))),
                      h4(strong("Annotations")),
                      fluidRow(
                        column(6, selectInput("selectannot_row", "Row annotation:", choices = c("Model_Family","Experiment_id"))),

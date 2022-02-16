@@ -28,7 +28,8 @@ Imports:
     circlize,
     ComplexHeatmap,
     InteractiveComplexHeatmap,
-    fmsb
+    fmsb,
+    openxlsx
 biocViews:
     ComplexHeatmap,
     InteractiveComplexHeatmap

@@ -11,6 +11,7 @@
 #' @importFrom DT renderDT
 #' @importFrom shinyWidgets show_alert
 #' @importFrom readxl read_xlsx
+#' @importFrom openxlsx write.xlsx
 #' @importFrom tools file_ext
 #' @importFrom plotly renderPlotly ggplotly
 #' @importFrom janitor remove_empty
@@ -116,6 +117,7 @@ app_server <- function( input, output, session ) {
 
     file_list <- unlist(strsplit(exp_list()$File, split = ","))
     
+
     showNotification(tagList(icon("info"), HTML("&nbsp;Number of files to be imported: ", length(file_list))), type = "default")
     message(paste0("Number of files to be imported: ", length(file_list)))
     
@@ -125,17 +127,38 @@ app_server <- function( input, output, session ) {
     }
     
     if (!all(file_list %in% list.files(unique(exp_list()$Path)))){
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name!")), type = "error")
-      message("At least one file is missing or reported with the wrong name!")
+      file_wrong = file_list[!file_list %in% list.files(unique(exp_list()$Path))]
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
+      message("At least one file is missing or reported with the wrong name! Check",file_wrong)
       return(NULL)
     } else {
     
+      #check wavelength
+      expid_for_test = dplyr::filter(exp_list(), Instrument == "EZ_READ_2000" & Scan == "Double")$Experiment_id
+      temp = list()
+      temp = lapply(expid_for_test, function(x){
+        exp_list = dplyr::filter(exp_list(), Experiment_id == x)
+        if(exp_list$Scan == "Double" && exp_list$Instrument == "EZ_READ_2000"){
+          mydata <- as.data.frame(readxl::read_excel(paste0(exp_list$Path,exp_list$File), sheet = "Results")) %>%
+            dplyr::select(where(is.double))
+          wave = stringr::str_split(exp_list$Wavelength, ",", simplify = T)
+          if(!all(wave %in% colnames(mydata))){
+            return(exp_list$File)
+          }
+        }
+      })
+      where = Filter(Negate(is.null), temp) %>% unlist()
+      if(!is.null(where)){
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
+        return(NULL)
+      }
+      
       
       processed.experiment = list()
       expid = exp_list()$Experiment_id
       
-      
       percentage <- 0
+
       withProgress(message = "Reading data...", value=0, {
         processed.experiment = lapply(expid, function(x){
           exp_list = dplyr::filter(exp_list(), Experiment_id == x)
@@ -147,12 +170,13 @@ app_server <- function( input, output, session ) {
                           path = file_explist$Path,
                           instrument = file_explist$Instrument,
                           scan = file_explist$Scan, 
-                          sample.anno=dplyr::filter(target(), Experiment_id == x)) %>%
+                          sample.anno=dplyr::filter(target(), Experiment_id == x),
+                          wave = file_explist$Wavelength) %>%
             eval_cytoxicity()
           
         })
       })
-      
+
       names(processed.experiment) = expid
 
       showNotification(tagList(icon("check"), HTML("&nbsp;Analysis completed!")), type = "message")
@@ -190,9 +214,31 @@ app_server <- function( input, output, session ) {
       #dplyr::mutate(First = stringr::str_split_fixed(Product, "_",n = 3)[,1])
   })
   
+  # DATA STORAGE
+  values_comb_heat <- reactiveValues(
+    comb = NULL # original data
+  )
+
   observeEvent(prod_total(),{
     updateSelectInput(session, "prod_filt_heatmap", choices = unique(prod_total()$Product_Family))
+    
+    values_comb_heat$comb <- rev(unique(prod_total()$Dose))
   })
+  
+  
+  observeEvent(input$revdose_heat,{
+    values_comb_heat$comb <- rev(values_comb_heat$comb)
+  })
+
+  observeEvent(values_comb_heat$comb,{
+    req(values_comb_heat$comb)
+    if(!is.null(values_comb_heat$comb)){
+      combin = combn(values_comb_heat$comb, 2, paste, collapse = '-')
+      updateSelectInput(session, "subdose_heatmap", choices = combin)
+    }
+  })
+  
+
   
 
   observeEvent(input$prod_filt_heatmap,{
@@ -227,16 +273,18 @@ app_server <- function( input, output, session ) {
     }
   })
   
-  dataheat = eventReactive(input$makeheatmap,{
+  
+  data_heatmap = reactive({
     req(prod_total())
     
     CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-
+    
+    ### model type filtering
     if(is.null(input$mod_filt_heatmap)){
       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
       validate(need(input$mod_filt_heatmap, "Select something in the model type filtering."))
     }
-
+    
     if(!("All" %in% input$mod_filt_heatmap)){
       if(length(input$mod_filt_heatmap) < 2 && input$rowdend == TRUE){
         showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model type or disable the row clustering.")), type = "error")
@@ -244,36 +292,99 @@ app_server <- function( input, output, session ) {
       }
       CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_heatmap)
     }
-
-
+    
+    #control
     filt_cnt = data() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
       dplyr::filter(Experiment_id %in% unique(CBC150$Experiment_id)) %>%
       tidyr::unite("Product", Product, Dose, sep = " ")
-
-    ht_list = NULL
-    if(input$filt_dose == "All"){
-      doses = as.character(unique(CBC150$Dose))
-    }else{
-      doses = as.character(input$filt_dose)
-    }
-    for(i in doses){
-
-      cbc_filtered = CBC150 %>% dplyr::filter(Dose == i) %>% 
+    
+    #measure type
+    type_meas = ifelse(input$typeeval_heat == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
+    
+    ###filtering option
+    if(input$dose_op_heatmap == "filter"){
+      if(input$filt_dose == "All"){
+        doses = as.character(unique(CBC150$Dose))
+      }else{
+        doses = as.character(input$filt_dose)
+      }
+      cbc_filtered = split(CBC150, f = doses) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt))
+      
+      cbc_filtered = lapply(cbc_filtered, function(x){
+        if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
+          showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+                                                           Duplicated will be averaged.")), type = "default")
+          x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+            dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% dplyr::ungroup()
+        }else{x}
+      })
+      
+      #####mean option
+    }else if(input$dose_op_heatmap == "mean"){
+      
+      cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))))%>% 
+        dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup() %>% 
         dplyr::bind_rows(filt_cnt)
       
       if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
                                                     Duplicated will be averaged.")), type = "default")
-        
-       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-        dplyr::summarise(across(Cytoxicity.average, mean, na.rm = T)) %>% dplyr::ungroup()
+        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+          dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% dplyr::ungroup()
       }
       
-      ht_list = ht_list + make_heatmap(
-        data = cbc_filtered,
+      ##### subtract option
+    }else{
+      combination = strsplit(input$subdose_heatmap, "-")
+      cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
+        #dplyr::mutate(Cytoxicity.average = Cytoxicity.average[Dose == "30"] - Cytoxicity.average[Dose == "5"]) %>% 
+        dplyr::summarise(across(type_meas, ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
+        dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
+      
+      if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
+        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+                                                    Duplicated will be averaged.")), type = "default")
+        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+          dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% dplyr::ungroup()
+      }
+      
+    }
+    
+    cbc_filtered
+  })
+  
+  
+  heatmap = eventReactive(input$makeheatmap,{
+    req(data_heatmap())
+    ht_list = NULL
+    #measure type
+    type_meas = ifelse(input$typeeval_heat == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
+    
+    if(input$dose_op_heatmap == "filter"){
+      for (i in names(data_heatmap())){
+        ht_list = ht_list + make_heatmap(
+          data = as.data.frame(data_heatmap()[[i]]),
+          add_rowannot = input$selectannot_row,
+          add_colannot = input$selectannot_col,
+          title = paste(input$prod_filt_heatmap,i,"ug/mL"),
+          order_data = input$heatsort,
+          row_dend = input$rowdend, 
+          row_nclust = input$sliderrowheat, 
+          col_dend = input$columndend, 
+          col_nclust = input$slidercolheat, 
+          dist_method = input$seldistheat, 
+          clust_method = input$selhclustheat, 
+          unit_legend = paste("%",input$typeeval_heat,i,"ug/mL"),
+          add_values = input$show_valheat,
+          typeeval_heat = type_meas
+        )
+      }
+    }else if(input$dose_op_heatmap == "mean"){
+      ht_list = make_heatmap(
+        data = data_heatmap(),
         add_rowannot = input$selectannot_row,
         add_colannot = input$selectannot_col,
-        title = paste(input$prod_filt_heatmap,i,"ug/mL"),
+        title = paste(input$prod_filt_heatmap,"ug/mL"),
         order_data = input$heatsort,
         row_dend = input$rowdend, 
         row_nclust = input$sliderrowheat, 
@@ -281,18 +392,54 @@ app_server <- function( input, output, session ) {
         col_nclust = input$slidercolheat, 
         dist_method = input$seldistheat, 
         clust_method = input$selhclustheat, 
-        unit_legend = paste("% cytotoxicity",i,"ug/mL"),
-        col_label_size = 8 
+        unit_legend = paste("%",input$typeeval_heat),
+        add_values = input$show_valheat,
+        typeeval_heat = type_meas
+      )
+    }else{
+      ht_list = make_heatmap(
+        data = data_heatmap(),
+        add_rowannot = input$selectannot_row,
+        add_colannot = input$selectannot_col,
+        title = paste(input$prod_filt_heatmap,"ug/mL"),
+        order_data = input$heatsort,
+        row_dend = input$rowdend, 
+        row_nclust = input$sliderrowheat, 
+        col_dend = input$columndend, 
+        col_nclust = input$slidercolheat, 
+        dist_method = input$seldistheat, 
+        clust_method = input$selhclustheat, 
+        unit_legend = paste("%",input$typeeval_heat),
+        color_scale = circlize::colorRamp2(c(-100, 0, 100), c("green","white", "red")),
+        add_values = input$show_valheat,
+        typeeval_heat = type_meas
       )
     }
+    
     ComplexHeatmap::draw(ht_list, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(3, "cm"))
+  })
+  
+ 
 
+  observeEvent(heatmap(),{
+    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heatmap(), heatmap_id  = "heatmap_output")
   })
 
-  observeEvent(dataheat(),{
-    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, dataheat(), heatmap_id  = "heatmap_output")
-  })
-
+  
+  
+  
+  #### Download handler for the download button
+  output$download_heat <- downloadHandler(
+    #put the file name with also the file extension
+    filename = function() {
+      paste0("Data_heatmap", Sys.Date(), ".xlsx")
+    },
+    
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+      openxlsx::write.xlsx(data_heatmap(), file)
+    }
+  )
   
   
   ####barplot ####
@@ -341,11 +488,11 @@ app_server <- function( input, output, session ) {
     data_plot_not = rbind(data_plot_not1, cnts)
     level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", unique(data_plot_not1$Product))
     
-    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = Cytoxicity, fill = factor(Dose)))+
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +geom_point(position = position_dodge(width = 1))+
       stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
-      xlab("Product") + ggtitle(input$family_filt_bar) +
+      xlab("Product") + ggtitle(input$family_filt_bar) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
     
@@ -393,11 +540,11 @@ app_server <- function( input, output, session ) {
     data_plot_not = rbind(data_plot_not1, cnts)
     level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", unique(data_plot_not1$Product))
     
-    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = Cytoxicity, fill = factor(Dose)))+
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +geom_point(position = position_dodge(width = 1))+
       stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
-      xlab("Product") + ggtitle(input$family_filt_bar2) +
+      xlab("Product") + ggtitle(input$family_filt_bar2) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
     
@@ -470,6 +617,8 @@ app_server <- function( input, output, session ) {
   output$spidplot = renderPlot({
     req(data())
     
+    #measure type
+    type_meas = ifelse(input$typeeval_spid == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
 
     data_plot1 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid) %>% 
       dplyr::filter(Dose == input$dose_filt_spid) %>% dplyr::mutate(Product = stringr::str_split_fixed(Product, "_",n = 3)[,2]) %>% 
@@ -481,13 +630,13 @@ app_server <- function( input, output, session ) {
       if(length(unique(data_plot1$Experiment_id))>1){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid,", and 
                                                     will be averaged.")), type = "default")
-        radardata = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(Cytoxicity.average, mean, na.rm = T)) %>% 
-          tibble::column_to_rownames("Product") %>% dplyr::select(Cytoxicity.average) %>% t()
+        radardata = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% 
+          tibble::column_to_rownames("Product") %>% dplyr::select(type_meas) %>% t()
       }else{
-        radardata = rbind(data_plot1, cnts1) %>% tibble::column_to_rownames("Product") %>% dplyr::select(Cytoxicity.average) %>% t()
+        radardata = rbind(data_plot1, cnts1) %>% tibble::column_to_rownames("Product") %>% dplyr::select(type_meas) %>% t()
       }
 
-      title_spid = paste("Cytoxicity of",input$family_filt_spid, "at", input$dose_filt_spid, "ug/mL")
+      title_spid = paste(input$typeeval_spid,"of",input$family_filt_spid, "at", input$dose_filt_spid, "ug/mL")
       
 
     }else{
@@ -496,11 +645,11 @@ app_server <- function( input, output, session ) {
       if(length(unique(data_plot1$Experiment_id))>1){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid,", and 
                                                     will be averaged.")), type = "default")
-        first = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(Cytoxicity.average, mean, na.rm = T)) %>% 
+        first = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% 
           dplyr::mutate(Sample = paste(input$model_filt_spid, input$family_filt_spid, input$dose_filt_spid, sep = "."))
       }else{
         first = rbind(data_plot1, cnts1) %>% dplyr::mutate(Sample = paste(input$model_filt_spid, input$family_filt_spid, input$dose_filt_spid, sep = ".")) %>% 
-          dplyr::select(Product, Cytoxicity.average, Sample)
+          dplyr::select(Product, type_meas, Sample)
       }
 
       #second sample
@@ -512,17 +661,17 @@ app_server <- function( input, output, session ) {
       if(length(unique(data_plot2$Experiment_id))>1){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid2,", and 
                                                     will be averaged.")), type = "default")
-        second = rbind(data_plot2, cnts2) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(Cytoxicity.average, mean, na.rm = T)) %>%
+        second = rbind(data_plot2, cnts2) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(input$typeeval_spid, mean, na.rm = T)) %>%
           dplyr::mutate(Sample = paste(input$model_filt_spid2, input$family_filt_spid2, input$dose_filt_spid2, sep = "."))
       }else{
         second = rbind(data_plot2, cnts2) %>% dplyr::mutate(Sample = paste(input$model_filt_spid2, input$family_filt_spid2, input$dose_filt_spid2, sep = ".")) %>% 
-          dplyr::select(Product, Cytoxicity.average, Sample)
+          dplyr::select(Product, type_meas, Sample)
       }
       
 
       if(input$add_3spider == FALSE){
-        radardata = rbind(first,second) %>% dplyr::select(Product,Cytoxicity.average,Sample) %>% 
-          tidyr::pivot_wider(names_from = Product, values_from = Cytoxicity.average) %>% 
+        radardata = rbind(first,second) %>% dplyr::select(Product,type_meas,Sample) %>% 
+          tidyr::pivot_wider(names_from = Product, values_from = type_meas) %>% 
           tibble::column_to_rownames("Sample")
         #reorder column data
         order = unique(rbind(data_plot2, cnts2)$Product)
@@ -530,7 +679,7 @@ app_server <- function( input, output, session ) {
         
         doses2 = unique(c(input$dose_filt_spid, input$dose_filt_spid2))
         doses2 = ifelse(length(doses2) > 1, paste0(doses2[1], " and ", doses2[2] ), doses2)
-        title_spid = paste("Cytoxicity of",input$family_filt_spid,"and", input$family_filt_spid2, "at", doses2, "ug/mL")
+        title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,"and", input$family_filt_spid2, "at", doses2, "ug/mL")
 
       }else{
         #third sample
@@ -545,16 +694,16 @@ app_server <- function( input, output, session ) {
         if(length(unique(data_plot3$Experiment_id))>1){
           showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid3,", and 
                                                     will be averaged.")), type = "default")
-          third = rbind(data_plot3, cnts3) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(Cytoxicity.average, mean, na.rm = T)) %>%
+          third = rbind(data_plot3, cnts3) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(input$typeeval_spid, mean, na.rm = T)) %>%
             dplyr::mutate(Sample = paste(input$model_filt_spid3, input$family_filt_spid3, input$dose_filt_spid3, sep = "."))
         }else{
           third = rbind(data_plot3, cnts3) %>% dplyr::mutate(Sample = paste(input$model_filt_spid3, input$family_filt_spid3, input$dose_filt_spid3, sep = ".")) %>% 
-            dplyr::select(Product, Cytoxicity.average, Sample)
+            dplyr::select(Product, type_meas, Sample)
         }
         
 
-        radardata = rbind(first,second,third) %>% dplyr::select(Product,Cytoxicity.average,Sample) %>% 
-          tidyr::pivot_wider(names_from = Product, values_from = Cytoxicity.average) %>% 
+        radardata = rbind(first,second,third) %>% dplyr::select(Product,type_meas,Sample) %>% 
+          tidyr::pivot_wider(names_from = Product, values_from = type_meas) %>% 
           tibble::column_to_rownames("Sample")
 
         #reorder column data
@@ -564,7 +713,7 @@ app_server <- function( input, output, session ) {
         doses3 = unique(c(input$dose_filt_spid, input$dose_filt_spid2, input$dose_filt_spid3))
         doses3 = ifelse(length(doses3) == 2, paste0(doses3[1], " and ", doses3[2] ), 
                         ifelse(length(doses3) == 3, paste0(doses3[1], ", ", doses3[2], " and ",doses3[3] ), doses3))
-        title_spid = paste("Cytoxicity of",input$family_filt_spid,",", input$family_filt_spid2, "and", input$family_filt_spid3,
+        title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,",", input$family_filt_spid2, "and", input$family_filt_spid3,
                            "at", doses3, "ug/mL")
 
       }

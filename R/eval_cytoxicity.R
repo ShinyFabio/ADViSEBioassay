@@ -23,6 +23,7 @@ eval_cytoxicity = function(X,ref="Product",background="BACKGROUND",CTRL="CTRL"){
   X$Cytoxicity=ifelse(X$Cytoxicity>0, X$Cytoxicity, 0)
   X$Cytoxicity=ifelse(X$Cytoxicity>100, 100, X$Cytoxicity)
   X <- X[X[,ref]!=background,]
-  
+  X$Vitality =  100 - X$Cytoxicity
+
   return(X)
 }  

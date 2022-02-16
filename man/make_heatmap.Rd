@@ -12,12 +12,15 @@ make_heatmap(
   order_data = TRUE,
   row_dend = TRUE,
   row_nclust = 2,
-  col_dend = TRUE,
+  col_dend = FALSE,
   col_nclust = 3,
   dist_method = "euclidean",
   clust_method = "ward.D2",
   unit_legend = "\% toxicty",
-  col_label_size = 8
+  col_label_size = 8,
+  color_scale = circlize::colorRamp2(c(0, 100), c("white", "blue")),
+  add_values = FALSE,
+  typeeval_heat = "Cytoxicity.average"
 )
 }
 \arguments{
