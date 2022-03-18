@@ -6,7 +6,8 @@
 \usage{
 make_heatmap(
   data,
-  add_rowannot = "Experiment_id",
+  filt_data_col = "All",
+  add_rowannot = "Model_Family",
   add_colannot = NULL,
   title = "CBC150",
   order_data = TRUE,
@@ -20,7 +21,8 @@ make_heatmap(
   col_label_size = 8,
   color_scale = circlize::colorRamp2(c(0, 100), c("white", "blue")),
   add_values = FALSE,
-  typeeval_heat = "Cytoxicity.average"
+  thresh_values = 0,
+  typeeval_heat = "Cytotoxicity.average"
 )
 }
 \arguments{
@@ -47,6 +49,8 @@ make_heatmap(
 \item{unit_legend}{An unit label for the legend. If data are scaled will be "Z-score" otherwise will be the input.}
 
 \item{col_label_size}{Size of the column labels. By default col_label_size = 10.}
+
+\item{color_scale}{Color scale for the cells. By default is circlize::colorRamp2(c(0, 100), c("white", "blue")).}
 
 \item{scale_data}{Scaling data option. Data can be scaled (using scale()) by row ("row"), by column ("column") or not scaled ("none"). The result is the z-score.}
 }

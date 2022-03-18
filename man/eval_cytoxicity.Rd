@@ -10,5 +10,5 @@ eval_cytoxicity(X, ref = "Product", background = "BACKGROUND", CTRL = "CTRL")
 \item{X}{X}
 }
 \description{
-\code{read_cytoxicity} draw multiple break line (br())
+\code{eval_cytoxicity} draw multiple break line (br())
 }

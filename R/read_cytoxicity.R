@@ -8,6 +8,7 @@
 #' @importFrom readxl read_excel
 #' @importFrom tidyr gather unite
 #' @importFrom janitor remove_empty
+#' @importFrom shiny showNotification
 #'
 
 read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan="Single", wave, sample.anno=NULL,sep=",",filter.na="Product"){
@@ -26,7 +27,7 @@ read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan=
         tidyr::unite("Well", c(row,column),sep="")
     }
     else {
-      stop("Instrument non supported")
+      stop("Instrument not supported")
     }
   } else if (scan=="Double") {
     if (instrument=="EZ_READ_2000") {
@@ -53,6 +54,14 @@ read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan=
     }
   } 
   
+  #check well number
+  if(length(mydata$Well) != 96){
+    message(paste("In",ifile, "there are", length(mydata$Well), "wells instead of 96. This experiment will be removed. Check the file."))
+    showNotification(tagList(icon("exclamation-circle"), HTML(
+      "In",ifile, "there are", length(mydata$Well), "wells instead of 96.This experiment will be removed. Check the file.")), type = "warning")
+    return(NULL)
+  }
+  
   colnames(mydata)=c("Well","Absorbance")
   if (!is.null(sample.anno)){
     mydata <- dplyr::left_join(mydata,sample.anno,by="Well")
@@ -64,8 +73,8 @@ read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan=
    }
 
 
-     id.quality=which(mydata$Status=="Released")
-     mydata=mydata[id.quality,]
+    id.quality=which(mydata$Status=="Released")
+    mydata=mydata[id.quality,]
 
 
     mycols <- colnames(mydata)

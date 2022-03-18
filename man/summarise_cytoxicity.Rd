@@ -2,13 +2,17 @@
 % Please edit documentation in R/summarise_cytoxicity.R
 \name{summarise_cytoxicity}
 \alias{summarise_cytoxicity}
-\title{eval_cytoxicity}
+\title{summarise_cytoxicity}
 \usage{
-summarise_cytoxicity(X, group, method = "mean")
+summarise_cytoxicity(X, group, method = "cyto")
 }
 \arguments{
-\item{X}{X}
+\item{X}{data to summarise.}
+
+\item{group}{Column used for the grouping. The columns in group will not be removed.}
+
+\item{method}{Charcter. Can be "cyto" or "d1".}
 }
 \description{
-\code{read_cytoxicity} draw multiple break line (br())
+\code{summarise_cytoxicity} draw multiple break line (br())
 }

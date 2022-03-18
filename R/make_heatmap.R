@@ -15,6 +15,7 @@
 #' @param title A label for the column (i.e. "Lipids").
 #' @param unit_legend An unit label for the legend. If data are scaled will be "Z-score" otherwise will be the input.
 #' @param col_label_size Size of the column labels. By default col_label_size = 10.
+#' @param color_scale Color scale for the cells. By default is circlize::colorRamp2(c(0, 100), c("white", "blue")).
 #'
 #' @importFrom dplyr select arrange across left_join all_of
 #' @importFrom stats dist hclust as.dendrogram setNames
@@ -29,8 +30,9 @@
 #'
 
 
-make_heatmap = function(data, 
-                        add_rowannot = "Experiment_id",
+make_heatmap = function(data,
+                        filt_data_col = "All",
+                        add_rowannot = "Model_Family",
                         add_colannot = NULL,
                         title = "CBC150",
                         #log_data = FALSE,
@@ -46,27 +48,28 @@ make_heatmap = function(data,
                         col_label_size = 8,
                         color_scale = circlize::colorRamp2(c(0, 100), c("white", "blue")),
                         add_values = FALSE,
-                        typeeval_heat = "Cytoxicity.average"){
+                        thresh_values = 0,
+                        typeeval_heat = "Cytotoxicity.average"){
   
 #data = dplyr::arrange(data, Product_Family)
 
-if(order_data == TRUE){
-  data = data %>% dplyr::arrange(Model_type) %>% dplyr::arrange(Model_Family)
-  
-  
-  x <- c("CTRL 0", "MEKinhibitor 46.5", "CISPLATIN 30", "DOXORUBICIN 54.4", unique(data$Product[!grepl("CTRL", data$Product_Family)]))
-  
-  data = data %>%
-    dplyr::mutate(Product =  factor(Product, levels = x)) %>%
-    dplyr::arrange(Product) %>%
-    dplyr::mutate(Product =  as.character(Product))
-}
+  if(order_data == TRUE){
+    data = order_data(data, as_factor = FALSE)
+  }
 
-
-
-temp = data %>% dplyr::select(Product, Model_type, dplyr::all_of(typeeval_heat)) %>%
-  tidyr::pivot_wider( names_from = "Product", values_from = typeeval_heat) %>%
-  tibble::column_to_rownames("Model_type")
+  
+  #filter column
+  if(!("All" %in% filt_data_col)){
+    temp = dplyr::filter(data, Product_Family %in% filt_data_col)
+    data_for_annotcol = dplyr::filter(data, Product_Family %in% filt_data_col)
+  }else{
+    temp = data
+    data_for_annotcol = data
+  }
+  
+  temp = temp %>% dplyr::select(Product, Model_type, dplyr::all_of(typeeval_heat)) %>%
+    tidyr::pivot_wider( names_from = "Product", values_from = typeeval_heat) %>%
+    tibble::column_to_rownames("Model_type")
 
 
 # 
@@ -133,11 +136,34 @@ getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))
 
 #row annotation
 if(!is.null(add_rowannot)){
-  roww = data %>% dplyr::select(Model_type, dplyr::all_of(add_rowannot)) %>% distinct() %>% tibble::column_to_rownames("Model_type")
-  leng_row = roww %>% table() %>% length()
-  colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww)))) #oppure getPalette
-  colorannot_row = stats::setNames(list(colorannot_row), paste(add_rowannot))
-  row_ha = ComplexHeatmap::HeatmapAnnotation(df = roww, which = "row", col = colorannot_row, border = TRUE)
+  
+  
+  roww = data %>% dplyr::filter(Product_Family == "CTRL") %>% dplyr::select(Model_type, add_rowannot) %>% 
+    tibble::column_to_rownames("Model_type")
+  row_ha = c()
+  for(i in add_rowannot){
+    
+    if(is.character(roww[[i]]) || is.factor(roww[[i]])){
+      leng_row = roww[,i] %>% table() %>% length()
+      colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww[,i])))) #oppure getPalette
+      colorannot_row = stats::setNames(list(colorannot_row), paste(i))
+      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = dplyr::select(roww,i), col = c(colorannot_row), border = TRUE))
+    }else if(is.numeric(roww[[i]])) {
+      
+      col_fun2 = list(circlize::colorRamp2(breaks = c(min(roww[,i]), max(roww[,i])), colors = c("white","orange")))
+      #here I have to make a list ad assign a name like this otherwise random color
+      names(col_fun2) = i
+      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = dplyr::select(roww, dplyr::all_of(i)), col = col_fun2, border = TRUE))
+    }else{
+      message("Something wrong with the row annotation. The class isn't numeric, character or factor.")
+    }
+  }
+
+  #roww = data %>% dplyr::select(Model_type, dplyr::all_of(add_rowannot)) %>% distinct() %>% tibble::column_to_rownames("Model_type")
+  #leng_row = roww %>% table() %>% length()
+  #colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww)))) #oppure getPalette
+  #colorannot_row = stats::setNames(list(colorannot_row), paste(add_rowannot))
+  #row_ha = ComplexHeatmap::HeatmapAnnotation(df = roww, which = "row", col = colorannot_row, border = TRUE)
 }else{
   row_ha = NULL
 }
@@ -145,7 +171,7 @@ if(!is.null(add_rowannot)){
 
 #col annotation
 if(!is.null(add_colannot)){
-  annotdata_col = data %>% dplyr::select(Product, add_colannot) %>% dplyr::distinct() %>% tibble::column_to_rownames("Product")
+  annotdata_col = data_for_annotcol %>% dplyr::select(Product, add_colannot) %>% dplyr::distinct() %>% tibble::column_to_rownames("Product")
   leng_col = annotdata_col %>% table() %>% length()
   colorannot_col = stats::setNames(getPalette(leng_col), c(row.names(table(annotdata_col))))
   colorannot_col = stats::setNames(list(colorannot_col), paste(add_colannot))
@@ -160,7 +186,9 @@ ComplexHeatmap::ht_opt(ROW_ANNO_PADDING = grid::unit(4, "mm"), COLUMN_ANNO_PADDI
 
 if(add_values == TRUE){
   cell_values = function(j, i, x, y, width, height, fill) {
-    grid::grid.text(sprintf("%.0f", as.matrix(temp)[i, j]), x, y, gp = grid::gpar(fontsize = 10))
+    if(abs(as.matrix(temp)[i, j]) >= thresh_values){
+      grid::grid.text(sprintf("%.0f", as.matrix(temp)[i, j]), x, y, gp = grid::gpar(fontsize = 10))
+    }
   }
 }else{
   cell_values = NULL

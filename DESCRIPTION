@@ -10,6 +10,7 @@ Imports:
     golem (>= 0.3.1),
     shiny (>= 1.7.1),
     shinyWidgets,
+    bs4Dash,
     ggplot2,
     plotly,
     Hmisc,
@@ -29,7 +30,8 @@ Imports:
     ComplexHeatmap,
     InteractiveComplexHeatmap,
     fmsb,
-    openxlsx
+    openxlsx,
+    thematic
 biocViews:
     ComplexHeatmap,
     InteractiveComplexHeatmap

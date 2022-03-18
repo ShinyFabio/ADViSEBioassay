@@ -22,6 +22,54 @@
 app_server <- function( input, output, session ) {
   # Your application server logic 
   
+  options(scipen = 999)
+  
+  bs4Dash::useAutoColor()
+  
+  observeEvent(input$jumptohome, {
+    shinydashboard::updateTabItems(session, "sidebarmenu", "home")
+  })
+  
+  
+  # the modal dialog where the user can enter the query details.
+  query_modal <- modalDialog(
+    h3(strong("Welcome to ADViSELipidomics"), style = "text-align: center"),
+    br(),
+    h4("Before start, please enter your name and your company."),
+    textInput("indata_analyst", list(HTML("&nbsp;"), icon("user"), HTML("&nbsp;Enter your name")), value = "Name"),
+    textInput("inlab_analyst", list(HTML("&nbsp;"), icon("building"), HTML("&nbsp;Enter your company")), value = "Company"),
+    easyClose = F,
+    footer = tagList(
+      actionButton("run", "Run")
+    )
+  )
+  
+  
+  
+  # Show the model on start up ...
+  observeEvent(input$sidebarmenu,{
+    req(input$sidebarmenu == "rawsub")
+    showModal(query_modal)
+  },ignoreInit = TRUE, once = TRUE)
+  
+  
+  # ... or when user wants to change query
+  observeEvent(input$change,{
+    showModal(query_modal)
+  })
+  
+  observeEvent(input$run, {
+    removeModal()
+  })
+  
+  output$nome = renderText({
+    if(is.null(input$indata_analyst)){
+      "Name"
+    }else{
+      input$indata_analyst
+    }
+  })
+  
   
   ##### EXP list #####
   exp_list_to_edit = reactive({
@@ -62,14 +110,19 @@ app_server <- function( input, output, session ) {
     to_rem = NULL
     for(i in unique(Target_file$Experiment_id)){
       expid = Target_file %>% dplyr::filter(Experiment_id == i)
-      #check id and support type
-      num_supp = unique(expid$Support_type)
-      if(length(num_supp) > 1){
-        print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
-        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                              HTML("There are more than one Support type (",num_supp, ") for the", i, "and will be removed. Check the target file.")), type = "warning")
-        to_rem = c(to_rem, i)
+      
+      
+      if("Support_type" %in% colnames(expid)){
+        #check id with support type
+        num_supp = unique(expid$Support_type)
+        if(length(num_supp) > 1){
+          print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
+          showNotification(duration = 8, tagList(icon("exclamation-circle"), 
+                                                 HTML("There are more than one Support type (",num_supp, ") for the", i, "and will be removed. Check the target file.")), type = "warning")
+          to_rem = c(to_rem, i)
+        }
       }
+
       
       #check well numbers in the plate
       if(length(expid$Well) != 96){
@@ -79,7 +132,7 @@ app_server <- function( input, output, session ) {
         to_rem = c(to_rem, i)
       }
       #check well replicates
-      if(length(unique(expid$Well)) != 96){
+      if(length(unique(expid$Well)) != length(expid$Well)){
         dup_wells = expid[duplicated(expid$Well),]$Well
         print(paste0("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file."))
         showNotification(duration = 8, tagList(icon("exclamation-circle"), 
@@ -205,13 +258,371 @@ app_server <- function( input, output, session ) {
     }
   })
   
+  ##### informative plots #####
+  
+  output$countbarplot = plotly::renderPlotly({
+    req(data(), exp_list())
+    
+    count = data() %>% dplyr::select(where(is.character)) %>% dplyr::mutate(across(where(is.character), ~length(unique(.x))))
+    count = t(count[1,])
+    colnames(count) = "Count"
+    count = count %>% as.data.frame() %>% tibble::rownames_to_column("Measure")
+    count$Var = count$Measure
+    
+    inst = as.data.frame(table(exp_list()$Instrument))
+    inst$Measure = "Instrument"
+    scans = as.data.frame(table(exp_list()$Scan))
+    scans$Measure = "Scan"
+    
+
+    scanint = rbind(inst,scans)
+    colnames(scanint) = c("Var", "Count","Measure")
+    
+    count = rbind(count,scanint)
+    count$Measure = factor(count$Measure, levels = unique(count$Measure))
+    count$Var = factor(count$Var, levels = unique(count$Var))
+    temp = ggplot(count, aes(x = Measure, y = Count)) + geom_col(aes(fill = Var)) + 
+      geom_text(aes(label=Count)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
+      theme(axis.text.x = element_text(angle = 315, hjust = 0))
+    
+    plotly::ggplotly(temp)
+    
+  })
+  
+  
+  
+  
+  output$modtype_barplto = plotly::renderPlotly({
+    req(data())
+    temp = ggplot(data(), aes(x= Model_type)) + geom_bar(aes(fill = Model_Family)) + ggtitle("Sample for each Model type")+ 
+      ylab("Number of samples") + theme(axis.text.x = element_text(angle = 315, hjust = 0))
+    plotly::ggplotly(temp)
+  })
+  
+
+  output$prodfam_barplot = plotly::renderPlotly({
+    req(data())
+    
+    prod_table =  as.data.frame(table(data()$Product_Family))
+    colnames(prod_table)[1] = "Product_Family"
+    
+    prod_table = prod_table[order(-prod_table$Freq),]
+    prod_table$Product_Family = factor(prod_table$Product_Family, levels = rev(prod_table$Product_Family))
+    
+    
+    if(input$first50_prodfam == TRUE){
+      prod_table = prod_table[1:50,]
+      size_plot = 84 + 640
+    }else{
+      size_plot = 84 + (640*length(prod_table$Product_Family))/(50 + length(prod_table$Product_Family)/10) #640 found with html inspect when 50 prod are shown.
+    }
+    temp = ggplot(prod_table) + geom_col(aes(y = Product_Family, x = Freq, fill = Product_Family))+ 
+      xlab("Number of samples")+ ylab("Product Family") + ggtitle("Sample for each Product Family") + 
+      theme(axis.text.y = element_text(size = 7.4))
+
+    
+    plotly::ggplotly(temp, tooltip = c("x", "fill"))
+  })
+  
+  output$prodfam_barplotUI = renderUI({
+    
+    if(input$first50_prodfam == TRUE){
+      size_plot = 84 + 640
+    }else{
+      size_plot = 84 + (640*length(unique(data()$Product_Family)))/(50 + length(unique(data()$Product_Family))/10) #640 found with html inspect when 50 prod are shown.
+    }
+    
+    plotly::plotlyOutput("prodfam_barplot", height = paste0(size_plot,"px"))
+  })
+  
+  ####pie plot 
+  
+  # for maintaining the current category (i.e. selection)
+  current_category <- reactiveVal()
+
+  
+  filtdata_pie <- reactive({
+    req(data())
+    if (is.null(current_category())) {
+      return(dplyr::count(data(), Model_Family))
+    }
+    data() %>%
+      dplyr::filter(Model_Family %in% current_category()) %>%
+      dplyr::count(Model_type)
+  })
+  
+  # Note that pie charts don't currently attach the label/value 
+  # with the click data, but we can include as `customdata`
+  output$piemodfamilyplot <- renderPlotly({
+
+    d <- setNames(filtdata_pie(), c("labels", "values"))
+    plotly::plot_ly(d) %>%
+      plotly::add_pie(labels = ~labels, values = ~values, customdata = ~labels, textinfo = 'label+value') %>%
+      plotly::layout(title = if(is.null(current_category())){"Model_Family distribution"}else{ paste("Distribution for", current_category())})
+  })
+  
+
+  # update the current category when appropriate
+  observe({
+    cd <- plotly::event_data("plotly_click")$customdata[[1]]
+    if (isTRUE(cd %in% unique(data()$Model_Family))) current_category(cd)
+  })
+  
+  output$back <- renderUI({
+    if (!is.null(current_category())) 
+      actionButton("clear", "Back", icon("chevron-left"))
+  })
+  
+  # clear the chosen category on back button press
+  observeEvent(input$clear, current_category(NULL))
+
+ 
+  ## heatmap product family vs model type
+  
+  heat_informative = reactive({
+    req(data())
+    data_wout_cnt = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+
+    prod_table2 =  table(data_wout_cnt[,c("Product_Family","Model_type")]) %>% as.matrix() 
+    
+    
+    unit_legend = "N of samples"
+    # if(input$scale_heatinform == "By column"){
+    #   prod_table2 = scale(prod_table2) # scale and center columns
+    #   #ora se ho una colonna con tutti 0, scale restituisce una colonna con tutti NaN. Qui sostituisco le colonne
+    #   #con tutti NaN con tutti 0. QUesta parte non dovrebbe servire
+    #   for(i in seq(1:length(prod_table2[1,]))){
+    #     if(mean(is.na(prod_table2[,i])) == 1){
+    #       prod_table2[,i] = 0
+    #     }
+    #   }
+    #   unit_legend = "Z-score"
+    # } else if(input$scale_heatinform == "By row"){
+    #   prod_table2 = t(scale(t(prod_table2))) # scale and center rows
+    #   unit_legend = "Z-score"
+    # }
+    # 
+    
+    #col annotation
+    #creo l'annotazione
+    getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))
+    
+    annotdata_col = data_wout_cnt %>% dplyr::select(Model_type, Model_Family) %>% dplyr::distinct() %>% 
+      dplyr::arrange(Model_type, colnames(prod_table2)) %>% tibble::column_to_rownames("Model_type")
+    leng_col = annotdata_col %>% table() %>% length()
+    colorannot_col = stats::setNames(getPalette(leng_col), c(row.names(table(annotdata_col))))
+    colorannot_col = stats::setNames(list(colorannot_col), paste("Model_Family"))
+    col_ha = ComplexHeatmap::HeatmapAnnotation(df = annotdata_col, which = "column", col = colorannot_col, border = TRUE)
+
+    ComplexHeatmap::Heatmap(prod_table2, name = unit_legend, rect_gp = grid::gpar(col = "white", lwd = 1), 
+                            row_title = "Product Family", column_title = "Model type", 
+                            row_names_gp = grid::gpar(fontsize = 6), column_names_gp = grid::gpar(fontsize = 8), #size testo
+                            cluster_rows = FALSE, cluster_columns = FALSE, 
+                            bottom_annotation = col_ha,
+                            row_gap = grid::unit(2, "mm"), column_gap = grid::unit(2, "mm"), #spazio tra le divisioni
+                            col = c("white", "blue")
+                            #cell_fun = cell_values
+    )
+    
+  })
+  
+  
+  observeEvent(heat_informative(),{
+    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heat_informative(), heatmap_id  = "heatmap_inform_output")
+  })
+  
+  
+  ##### bubbleplot ####
+  
+  mod_bubble_plot_server("bubbleplot_cyto", data = data)
+  
+  # 
+  # # DATA STORAGE
+  # values_comb_bubb <- reactiveValues(
+  #   comb = NULL # original data
+  # )
+  # 
+  # observeEvent(prod_total(),{
+  #   updateSelectInput(session, "prod_filt_bubb", choices = unique(prod_total()$Product_Family))
+  #   
+  #   values_comb_bubb$comb <- rev(unique(prod_total()$Dose))
+  # })
+  # 
+  # 
+  # observeEvent(input$revdose_bubb,{
+  #   values_comb_bubb$comb <- rev(values_comb_bubb$comb)
+  # })
+  # 
+  # observeEvent(values_comb_bubb$comb,{
+  #   req(values_comb_bubb$comb)
+  #   if(!is.null(values_comb_bubb$comb)){
+  #     combin = combn(values_comb_bubb$comb, 2, paste, collapse = '-')
+  #     updateSelectInput(session, "subdose_bubb", choices = combin)
+  #   }
+  # })
+  # 
+  # 
+  # 
+  # 
+  # observeEvent(input$prod_filt_bubb,{
+  #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
+  #   updateSelectInput(session, "mod_filt_bubb", choices = c("All", unique(prod_total()$Model_type)), selected = "All")
+  #   updateRadioButtons(session, "filt_dose_bubb", choices = c("All",unique(doses$Dose)),inline = TRUE)
+  # 
+  #   #column filtering
+  #   updateSelectInput(session, "column_filt_bubb", choices = c("All", "CTRL", "CTRL+", input$prod_filt_bubb), selected = "All")
+  # })
+  # 
+  # 
+  # 
+  # observeEvent(input$column_filt_bubb,{
+  #   if(input$column_filt_bubb %in% input$prod_filt_bubb || "All" %in% input$column_filt_bubb){
+  #     updateSelectInput(session, "dose_op_bubb", choices = c("filter", "mean", "subtract"))
+  #   }else{
+  #     updateSelectInput(session, "dose_op_bubb", choices = c("filter", "mean"))
+  #   }
+  # })
+  # 
+  # 
+  # 
+  # data_bubble = reactive({
+  #   req(prod_total())
+  #   
+  #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
+  #   
+  #   ### model type filtering
+  #   if(is.null(input$mod_filt_bubb)){
+  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
+  #     validate(need(input$mod_filt_bubb, "Select something in the model type filtering."))
+  #   }
+  #   
+  #   if(!("All" %in% input$mod_filt_bubb)){
+  #     # if(length(input$mod_filt_bubb) < 2 && input$rowdend == TRUE){
+  #     #   showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
+  #     #   validate(need(length(input$mod_filt_bubb) > 2, "Select at least two model types or disable row clustering."))
+  #     # }
+  #     CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_bubb)
+  #   }
+  #   
+  #   #control
+  #   filt_cnt = data() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
+  #     dplyr::filter(Experiment_id %in% unique(CBC150$Experiment_id)) %>%
+  #     tidyr::unite("Product", Product, Dose, sep = " ")
+  #   
+  #   #measure type
+  #   type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+  #   
+  #   ###filtering option
+  #   if(input$dose_op_bubb == "filter"){
+  #     
+  # 
+  #     cbc_filtered = split(CBC150, f = ~Dose) %>% lapply(function(x) {
+  #       x = dplyr::bind_rows(x, filt_cnt)
+  #       x$Dose[is.na(x$Dose)] <-  unique(na.omit(x$Dose))
+  #       x
+  #       })
+  #     
+  #     
+  #     cbc_filtered = lapply(cbc_filtered, function(x){
+  #       if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
+  #         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                          Duplicated will be averaged.")), type = "default")
+  #         x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #           dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
+  #       }else{x}
+  #     })
+  #     
+  #     cbc_filtered = data.table::rbindlist(cbc_filtered) %>% as.data.frame() 
+  #     if(input$filt_dose_bubb != "All"){
+  #       cbc_filtered = dplyr::filter(cbc_filtered, Dose %in% input$filt_dose_bubb)
+  #     }
+  #     
+  #     
+  #     #####mean option
+  #   }else if(input$dose_op_bubb == "mean"){
+  #     
+  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))))%>% 
+  #       dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup() %>% 
+  #       dplyr::bind_rows(filt_cnt)
+  #     
+  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
+  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                   Duplicated will be averaged.")), type = "default")
+  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #         dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
+  #     }
+  #     
+  #     ##### subtract option
+  #   }else{
+  #     combination = strsplit(input$subdose_bubb, "-")
+  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
+  #       dplyr::summarise(across(c(type_meas, input$varsize_bubb), ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
+  #       dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
+  #     
+  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
+  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                   Duplicated will be averaged.")), type = "default")
+  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #         dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
+  #     }
+  #     
+  #   }
+  #   
+  #   
+  #   ##column (product) filtering
+  #   if(is.null(input$column_filt_bubb)){
+  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
+  #     validate(need(input$column_filt_bubb, "Select something in the product (columns) filtering."))
+  #   }
+  #   
+  #   if(!("All" %in% input$column_filt_bubb)){
+  #     # if(input$column_filt_bubb == "CTRL" && input$columndend == TRUE){
+  #     #   showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+  #     #   validate(need(input$column_filt_bubb == "CTRL", "Select at least two products (columns) or disable column clustering."))
+  #     # }
+  #     if(class(cbc_filtered)[1] == "list"){
+  #       lapply(cbc_filtered, function(x) x %>% dplyr::filter(Product_Family %in% input$column_filt_bubb))
+  #     }else{
+  #       dplyr::filter(cbc_filtered, Product_Family %in% input$column_filt_bubb)
+  #     }
+  #   }else{
+  #     cbc_filtered
+  #   }
+  #   
+  # })
+  # 
+  # 
+  # output$bubbleplot = renderPlotly({
+  #   req(data_bubble())
+  #   type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+  #   
+  #   #levels_fct = unique(order_data(data_bubble())$Product)
+  #   temp = ggplot(order_data(data_bubble(),as_factor = TRUE), aes(x = Product, y = Model_type)) + #factor(Product, levels = levels_fct)
+  #     geom_point(aes(size = !!sym(input$varsize_bubb), color = !!sym(type_meas)), alpha = 0.75, shape = 16) + 
+  #     scale_size_continuous(range = c(1,10)) +
+  #     theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
+  #   
+  #   if(input$dose_op_bubb == "filter"){
+  #     temp = temp + facet_wrap(~Dose)
+  #   }
+  #   if(input$dose_op_bubb == "subtract"){
+  #     temp = temp + scale_color_gradient2(low = "green", mid = "white", high = "red", limits = c(-100,100))
+  #   }else{
+  #     temp = temp + scale_color_gradient(low = "white", high = "blue", limits = c(0,100))
+  #   }
+  #   
+  #   plotly::ggplotly(temp)
+  #   
+  # })
+  
+  
+  
   
   ##### heatmap ####
   
   prod_total = reactive({
     req(data())
-    data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) #%>% 
-      #dplyr::mutate(First = stringr::str_split_fixed(Product, "_",n = 3)[,1])
+    data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
   })
   
   # DATA STORAGE
@@ -245,6 +656,28 @@ app_server <- function( input, output, session ) {
     doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
     updateSelectInput(session, "mod_filt_heatmap", choices = c("All", unique(prod_total()$Model_type)), selected = "All")
     updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
+    updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
+    
+    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+    if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
+      updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
+    }else{
+      updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
+    }
+    
+    #column filtering
+    updateSelectInput(session, "column_filt_heatmap", choices = c("All", "CTRL", "CTRL+", input$prod_filt_heatmap), selected = "All")
+    
+  })
+  
+  
+  
+  observeEvent(input$column_filt_heatmap,{
+    if(input$column_filt_heatmap %in% input$prod_filt_heatmap || "All" %in% input$column_filt_heatmap){
+      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean", "subtract"))
+    }else{
+      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean"))
+    }
   })
   
   
@@ -264,15 +697,7 @@ app_server <- function( input, output, session ) {
   # })
   # 
   
-  observeEvent(input$prod_filt_heatmap,{
-    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-    if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
-      updateSelectInput(session, "selectannot_row", choices = "Model_Family")
-    }else{
-      updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id"))
-    }
-  })
-  
+
   
   data_heatmap = reactive({
     req(prod_total())
@@ -287,8 +712,8 @@ app_server <- function( input, output, session ) {
     
     if(!("All" %in% input$mod_filt_heatmap)){
       if(length(input$mod_filt_heatmap) < 2 && input$rowdend == TRUE){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model type or disable the row clustering.")), type = "error")
-        validate(need(length(input$mod_filt_heatmap) > 2, "Select at least two model types or disable the row clustering."))
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
+        validate(need(length(input$mod_filt_heatmap) > 2, "Select at least two model types or disable row clustering."))
       }
       CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_heatmap)
     }
@@ -299,17 +724,13 @@ app_server <- function( input, output, session ) {
       tidyr::unite("Product", Product, Dose, sep = " ")
     
     #measure type
-    type_meas = ifelse(input$typeeval_heat == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
+    type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
     
     ###filtering option
     if(input$dose_op_heatmap == "filter"){
-      if(input$filt_dose == "All"){
-        doses = as.character(unique(CBC150$Dose))
-      }else{
-        doses = as.character(input$filt_dose)
-      }
-      cbc_filtered = split(CBC150, f = doses) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt))
+      cbc_filtered = split(CBC150, f = ~Dose) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt))
       
+
       cbc_filtered = lapply(cbc_filtered, function(x){
         if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
           showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
@@ -337,7 +758,6 @@ app_server <- function( input, output, session ) {
     }else{
       combination = strsplit(input$subdose_heatmap, "-")
       cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
-        #dplyr::mutate(Cytoxicity.average = Cytoxicity.average[Dose == "30"] - Cytoxicity.average[Dose == "5"]) %>% 
         dplyr::summarise(across(type_meas, ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
         dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
       
@@ -351,19 +771,55 @@ app_server <- function( input, output, session ) {
     }
     
     cbc_filtered
+    # ##column (product) filtering
+    # if(is.null(input$column_filt_heatmap)){
+    #   showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
+    #   validate(need(input$column_filt_heatmap, "Select something in the product (columns) filtering."))
+    # }
+    # 
+    # if(!("All" %in% input$column_filt_heatmap)){
+    #   if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
+    #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+    #     validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
+    #   }
+    #   if(class(cbc_filtered)[1] == "list"){
+    #     lapply(cbc_filtered, function(x) x %>% dplyr::filter(Product_Family %in% input$column_filt_heatmap))
+    #   }else{
+    #     dplyr::filter(cbc_filtered, Product_Family %in% input$column_filt_heatmap)
+    #   }
+    # }else{
+    #   cbc_filtered
+    # }
+
   })
   
   
   heatmap = eventReactive(input$makeheatmap,{
     req(data_heatmap())
+    
+    if(!("All" %in% input$column_filt_heatmap)){
+      if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+        validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
+      }
+    }
+
+    
     ht_list = NULL
     #measure type
-    type_meas = ifelse(input$typeeval_heat == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
+    type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
     
     if(input$dose_op_heatmap == "filter"){
-      for (i in names(data_heatmap())){
+      
+      if(input$filt_dose == "All"){
+        doses = as.character(names(data_heatmap()))
+      }else{
+        doses = as.character(input$filt_dose)
+      }
+      for (i in doses){
         ht_list = ht_list + make_heatmap(
           data = as.data.frame(data_heatmap()[[i]]),
+          filt_data_col = input$column_filt_heatmap,
           add_rowannot = input$selectannot_row,
           add_colannot = input$selectannot_col,
           title = paste(input$prod_filt_heatmap,i,"ug/mL"),
@@ -376,15 +832,17 @@ app_server <- function( input, output, session ) {
           clust_method = input$selhclustheat, 
           unit_legend = paste("%",input$typeeval_heat,i,"ug/mL"),
           add_values = input$show_valheat,
+          thresh_values = input$range_showvalheat,
           typeeval_heat = type_meas
         )
       }
     }else if(input$dose_op_heatmap == "mean"){
       ht_list = make_heatmap(
         data = data_heatmap(),
+        filt_data_col = input$column_filt_heatmap,
         add_rowannot = input$selectannot_row,
         add_colannot = input$selectannot_col,
-        title = paste(input$prod_filt_heatmap,"ug/mL"),
+        title = paste(input$prod_filt_heatmap),
         order_data = input$heatsort,
         row_dend = input$rowdend, 
         row_nclust = input$sliderrowheat, 
@@ -394,14 +852,16 @@ app_server <- function( input, output, session ) {
         clust_method = input$selhclustheat, 
         unit_legend = paste("%",input$typeeval_heat),
         add_values = input$show_valheat,
+        thresh_values = input$range_showvalheat,
         typeeval_heat = type_meas
       )
     }else{
       ht_list = make_heatmap(
         data = data_heatmap(),
+        filt_data_col = input$column_filt_heatmap,
         add_rowannot = input$selectannot_row,
         add_colannot = input$selectannot_col,
-        title = paste(input$prod_filt_heatmap,"ug/mL"),
+        title = paste(input$prod_filt_heatmap,input$subdose_heatmap,"ug/mL"),
         order_data = input$heatsort,
         row_dend = input$rowdend, 
         row_nclust = input$sliderrowheat, 
@@ -412,6 +872,7 @@ app_server <- function( input, output, session ) {
         unit_legend = paste("%",input$typeeval_heat),
         color_scale = circlize::colorRamp2(c(-100, 0, 100), c("green","white", "red")),
         add_values = input$show_valheat,
+        thresh_values = input$range_showvalheat,
         typeeval_heat = type_meas
       )
     }
@@ -426,6 +887,14 @@ app_server <- function( input, output, session ) {
   })
 
   
+  output$dt_heatmap = renderDT({
+    req(data_heatmap())
+    if(input$dose_op_heatmap == "filter"){
+      data_heatmap()[[input$dose_dtheatmap]]
+    }else{
+      data_heatmap()
+    }
+  })
   
   
   #### Download handler for the download button
@@ -473,7 +942,7 @@ app_server <- function( input, output, session ) {
   
   
   output$check_multID_bar1 = reactive({
-    req(data())
+    req(data_notsumm())
     data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
@@ -481,16 +950,21 @@ app_server <- function( input, output, session ) {
   
   
   output$barplot = plotly::renderPlotly({
-    req(data())
+    req(data_notsumm())
 
     data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar)
     cnts = data_notsumm() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
-    level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", unique(data_plot_not1$Product))
+    
+    if(all(c("MEKinhibitor", "DOXORUBICIN", "CISPLATIN") %in% cnts$Product)){
+      level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
     
     plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
-      geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +geom_point(position = position_dodge(width = 1))+
+      geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +
       stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
@@ -525,7 +999,7 @@ app_server <- function( input, output, session ) {
   
   
   output$check_multID_bar2 = reactive({
-    req(data())
+    req(data_notsumm())
     data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
@@ -533,16 +1007,21 @@ app_server <- function( input, output, session ) {
   
   
   output$barplot2 = plotly::renderPlotly({
-    req(data())
+    req(data_notsumm())
     
     data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2)
     cnts = data_notsumm() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
-    level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", unique(data_plot_not1$Product))
+
+    if(all(c("MEKinhibitor", "DOXORUBICIN", "CISPLATIN") %in% cnts$Product_Family)){
+      level_order = c("CTRL", "MEKinhibitor", "DOXORUBICIN", "CISPLATIN", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
     
     plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
-      geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +geom_point(position = position_dodge(width = 1))+
+      geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +
       stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar2) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
@@ -557,7 +1036,7 @@ app_server <- function( input, output, session ) {
       }
     }
     
-    if(input$addpoints_barplot == TRUE){
+    if(input$addpoints_barplot2 == TRUE){
       plot = plot + geom_point(position = position_dodge(width = 1))
     }
     
@@ -570,164 +1049,378 @@ app_server <- function( input, output, session ) {
   
   #### Spider plot ####
   
-  observeEvent(data(),{
-    updateSelectInput(session, "model_filt_spid", choices = unique(data()$Model_type))
-    updateSelectInput(session, "model_filt_spid2", choices = unique(data()$Model_type))
-    updateSelectInput(session, "model_filt_spid3", choices = unique(data()$Model_type))
-  })
+  mod_spiderplot_server("spiderplot_cyto", data = data)
+
+  
+######## D1 ########
   
   
-  observeEvent({
-    input$model_filt_spid
-    input$model_filt_spid2
-    input$model_filt_spid3
-    },{
-    family1 = data() %>% dplyr::filter(Model_type == input$model_filt_spid) %>%
-      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
-    updateSelectInput(session, "family_filt_spid", choices = unique(family1))
-    
-    family2 = data() %>% dplyr::filter(Model_type == input$model_filt_spid2) %>%
-      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
-    updateSelectInput(session, "family_filt_spid2", choices = unique(family2))
-    
-    family3 = data() %>% dplyr::filter(Model_type == input$model_filt_spid3) %>%
-      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
-    updateSelectInput(session, "family_filt_spid3", choices = unique(family3))
-    
-  })
-  
-  
-  observeEvent(input$family_filt_spid,{
-    doses = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid)
-    updateSelectInput(session, "dose_filt_spid", choices = unique(doses$Dose))
-  })
-  
-  observeEvent(input$family_filt_spid2,{
-    doses2 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid2 & Model_type == input$model_filt_spid2)
-    updateSelectInput(session, "dose_filt_spid2", choices = unique(doses2$Dose))
-  })
-  
-  
-  observeEvent(input$family_filt_spid3,{
-    doses3 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid3 & Model_type == input$model_filt_spid3)
-    updateSelectInput(session, "dose_filt_spid3", choices = unique(doses3$Dose))
-  })
-  
-  
-  output$spidplot = renderPlot({
-    req(data())
-    
-    #measure type
-    type_meas = ifelse(input$typeeval_spid == "Cytoxicity", "Cytoxicity.average", "Vitality.average")
-
-    data_plot1 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid) %>% 
-      dplyr::filter(Dose == input$dose_filt_spid) %>% dplyr::mutate(Product = stringr::str_split_fixed(Product, "_",n = 3)[,2]) %>% 
-      dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
-    cnts1 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot1$Experiment_id))
-    
-    if(input$add_2spider == FALSE){
-
-      if(length(unique(data_plot1$Experiment_id))>1){
-        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid,", and 
-                                                    will be averaged.")), type = "default")
-        radardata = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% 
-          tibble::column_to_rownames("Product") %>% dplyr::select(type_meas) %>% t()
-      }else{
-        radardata = rbind(data_plot1, cnts1) %>% tibble::column_to_rownames("Product") %>% dplyr::select(type_meas) %>% t()
-      }
-
-      title_spid = paste(input$typeeval_spid,"of",input$family_filt_spid, "at", input$dose_filt_spid, "ug/mL")
-      
-
-    }else{
-      validate(need(paste(input$family_filt_spid,input$dose_filt_spid) != paste(input$family_filt_spid2,input$dose_filt_spid2), "Please select a different product or dose"))
-      #first sample
-      if(length(unique(data_plot1$Experiment_id))>1){
-        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid,", and 
-                                                    will be averaged.")), type = "default")
-        first = rbind(data_plot1, cnts1) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(type_meas, mean, na.rm = T)) %>% 
-          dplyr::mutate(Sample = paste(input$model_filt_spid, input$family_filt_spid, input$dose_filt_spid, sep = "."))
-      }else{
-        first = rbind(data_plot1, cnts1) %>% dplyr::mutate(Sample = paste(input$model_filt_spid, input$family_filt_spid, input$dose_filt_spid, sep = ".")) %>% 
-          dplyr::select(Product, type_meas, Sample)
-      }
-
-      #second sample
-      data_plot2 = data() %>% dplyr::filter(Model_type == input$model_filt_spid2 & Product_Family == input$family_filt_spid2) %>% 
-        dplyr::filter(Dose == input$dose_filt_spid2) %>% dplyr::mutate(Product = stringr::str_split_fixed(Product, "_",n = 3)[,2]) %>% 
-        dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
-      cnts2 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot2$Experiment_id)) 
-      
-      if(length(unique(data_plot2$Experiment_id))>1){
-        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid2,", and 
-                                                    will be averaged.")), type = "default")
-        second = rbind(data_plot2, cnts2) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(input$typeeval_spid, mean, na.rm = T)) %>%
-          dplyr::mutate(Sample = paste(input$model_filt_spid2, input$family_filt_spid2, input$dose_filt_spid2, sep = "."))
-      }else{
-        second = rbind(data_plot2, cnts2) %>% dplyr::mutate(Sample = paste(input$model_filt_spid2, input$family_filt_spid2, input$dose_filt_spid2, sep = ".")) %>% 
-          dplyr::select(Product, type_meas, Sample)
-      }
-      
-
-      if(input$add_3spider == FALSE){
-        radardata = rbind(first,second) %>% dplyr::select(Product,type_meas,Sample) %>% 
-          tidyr::pivot_wider(names_from = Product, values_from = type_meas) %>% 
-          tibble::column_to_rownames("Sample")
-        #reorder column data
-        order = unique(rbind(data_plot2, cnts2)$Product)
-        radardata = radardata[,order]
-        
-        doses2 = unique(c(input$dose_filt_spid, input$dose_filt_spid2))
-        doses2 = ifelse(length(doses2) > 1, paste0(doses2[1], " and ", doses2[2] ), doses2)
-        title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,"and", input$family_filt_spid2, "at", doses2, "ug/mL")
-
-      }else{
-        #third sample
-        validate(need(paste(input$family_filt_spid2,input$dose_filt_spid2) != paste(input$family_filt_spid3,input$dose_filt_spid3), "Please select a different product or dose"))
-        validate(need(paste(input$family_filt_spid,input$dose_filt_spid) != paste(input$family_filt_spid3,input$dose_filt_spid3), "Please select a different product or dose"))
-        
-        data_plot3 = data() %>% dplyr::filter(Model_type == input$model_filt_spid3) %>% dplyr::filter(Product_Family == input$family_filt_spid3) %>% 
-          dplyr::filter(Dose == input$dose_filt_spid3) %>% dplyr::mutate(Product = stringr::str_split_fixed(Product, "_",n = 3)[,2]) %>% 
-          dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
-        cnts3 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot3$Experiment_id)) 
-        
-        if(length(unique(data_plot3$Experiment_id))>1){
-          showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_spid3,", and 
-                                                    will be averaged.")), type = "default")
-          third = rbind(data_plot3, cnts3) %>% dplyr::group_by(Product) %>% dplyr::summarise(across(input$typeeval_spid, mean, na.rm = T)) %>%
-            dplyr::mutate(Sample = paste(input$model_filt_spid3, input$family_filt_spid3, input$dose_filt_spid3, sep = "."))
-        }else{
-          third = rbind(data_plot3, cnts3) %>% dplyr::mutate(Sample = paste(input$model_filt_spid3, input$family_filt_spid3, input$dose_filt_spid3, sep = ".")) %>% 
-            dplyr::select(Product, type_meas, Sample)
-        }
-        
-
-        radardata = rbind(first,second,third) %>% dplyr::select(Product,type_meas,Sample) %>% 
-          tidyr::pivot_wider(names_from = Product, values_from = type_meas) %>% 
-          tibble::column_to_rownames("Sample")
-
-        #reorder column data
-        order = unique(rbind(data_plot3, cnts3)$Product)
-        radardata = radardata[,order]
-        
-        doses3 = unique(c(input$dose_filt_spid, input$dose_filt_spid2, input$dose_filt_spid3))
-        doses3 = ifelse(length(doses3) == 2, paste0(doses3[1], " and ", doses3[2] ), 
-                        ifelse(length(doses3) == 3, paste0(doses3[1], ", ", doses3[2], " and ",doses3[3] ), doses3))
-        title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,",", input$family_filt_spid2, "and", input$family_filt_spid3,
-                           "at", doses3, "ug/mL")
-
-      }
-      
-
+  ##### EXP list #####
+  exp_list_to_edit_D1 = reactive({
+    req(input$exp_list_file_D1)
+    ext <- tools::file_ext(input$exp_list_file_D1$name)
+    if(ext != "xlsx"){
+      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
     }
-
-    lab =  c(0, 20, 40, 60, 80, 100)
-    g2 = rbind("Max" = 100, "Min" = 0, radardata)
-    
-    create_beautiful_radarchart(g2, caxislabels = lab, color = grDevices::hcl.colors(3, palette = "Dynamic"),
-                                title = title_spid, x_legend = 1, y_legend = 1.3)
-    
+    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
+    showNotification(tagList(icon("check"), HTML("&nbsp;Experiment list file loaded.")), type = "message")
+    readxl::read_xlsx(input$exp_list_file_D1$datapath) %>% janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
+  })
   
-    }, width = 800, height = 600)
+  
+  exp_list_D1 = mod_edit_data_server("edit_exp_list_D1", data_input = exp_list_to_edit_D1, maxrows = 200)
+  
+  #check data correctly loaded
+  output$check_explist_D1 = reactive(
+    return(is.null(exp_list_D1()))
+  )
+  outputOptions(output, "check_explist_D1", suspendWhenHidden = FALSE)
+  
+  
+  #### Target file ####
+  
+  target_to_edit_D1 = reactive({
+    req(input$target_file_D1, exp_list_D1())
+    ext <- tools::file_ext(input$target_file_D1$name)
+    if(ext != "xlsx"){
+      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
+    }
+    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
+    Target_file = readxl::read_xlsx(input$target_file_D1$datapath, na = "NA") %>% 
+      janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
+    
+    #filter target based on exp_list
+    Target_file = Target_file %>% dplyr::filter(Experiment_id %in% exp_list_D1()$Experiment_id)
+
+    to_rem = NULL
+    for(i in unique(Target_file$Experiment_id)){
+      expid = Target_file %>% dplyr::filter(Experiment_id == i)
+      
+      #in realtà support_type non è presente
+      if("Support_type" %in% colnames(expid)){
+        #check id with support type
+        num_supp = unique(expid$Support_type)
+        if(length(num_supp) > 1){
+          print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
+          showNotification(duration = 8, tagList(icon("exclamation-circle"),
+                                                 HTML("There are more than one Support type (",num_supp, ") for the", i, "and will be removed. Check the target file.")), type = "warning")
+          to_rem = c(to_rem, i)
+        }
+      }
+
+      
+      #check well numbers in the plate
+      if(length(expid$Well) != 96){
+        print(paste0("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file."))
+        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
+                                               HTML("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file.")), type = "warning")
+        to_rem = c(to_rem, i)
+      }
+      
+      #check well replicates
+      if(length(unique(expid$Well)) != length(expid$Well)){
+        dup_wells = expid[duplicated(expid$Well),]$Well
+        print(paste0("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file."))
+        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
+                                               HTML("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file.")), type = "warning")
+        to_rem = c(to_rem, i)
+      }
+    }
+    
+    if(is.null(to_rem)){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded.")), type = "message")
+      Target_file
+    }else{
+      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded. Some experiments are removed.")), type = "message")
+      Target_file %>% dplyr::filter(!(Experiment_id %in% unique(to_rem)))
+    }
+    
+  })
+  
+  
+  target_D1 = mod_edit_data_server("edit_target_D1", data_input = target_to_edit_D1, maxrows = 150)
+  
+  #check data correctly loaded
+  output$check_target_D1 = reactive(
+    return(is.null(target_D1()))
+  )
+  outputOptions(output, "check_target_D1", suspendWhenHidden = FALSE)
+  
+  
+  
+  #### eval cytotox ####
+  data_notsumm_D1 = eventReactive(input$gocyto_D1,{
+    req(target_D1(), exp_list_D1())
+    
+    check_files = paste0(exp_list_D1()$Path, exp_list_D1()$File)
+    
+    file_list <- unlist(strsplit(exp_list_D1()$File, split = ","))
+
+    showNotification(tagList(icon("info"), HTML("&nbsp;Number of files to be imported: ", length(file_list))), type = "default")
+    message(paste0("Number of files to be imported: ", length(file_list)))
+    
+    message(paste0("Name of files to be imported: ", "\n"))
+    for (k in 1:length(file_list)){
+      message(paste0(file_list[k]))
+    }
+    
+    if (!all(file_list %in% list.files(unique(exp_list_D1()$Path)))){
+      file_wrong = file_list[!file_list %in% list.files(unique(exp_list_D1()$Path))]
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
+      message("At least one file is missing or reported with the wrong name! Check",file_wrong)
+      return(NULL)
+    } else {
+      
+
+      
+      processed.experiment = list()
+      expid = exp_list_D1()$Experiment_id
+      
+      percentage <- 0
+      
+      withProgress(message = "Reading data...", value=0, {
+        processed.experiment = lapply(expid, function(x){
+          percentage <<- percentage + 1/length(expid)*100
+          incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
+          print(paste("Loading experiment",x,sep =" "))  
+          
+          file_explist = dplyr::filter(exp_list_D1(), Experiment_id == x)
+          file_target = dplyr::filter(target_D1(), Experiment_id == x)
+          read_D1(file_explist, file_target, filter.na = "Product")
+        })
+      })
+      
+      names(processed.experiment) = expid
+      
+      showNotification(tagList(icon("check"), HTML("&nbsp;Analysis completed!")), type = "message")
+      tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
+    }
+  })
+  
+  data_D1 = reactive({
+    req(data_notsumm_D1())
+    summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose"), method = "d1")
+  })
+  
+  #check data correctly loaded
+  output$check_data_D1 = reactive(
+    return(is.null(data_D1()))
+  )
+  outputOptions(output, "check_data_D1", suspendWhenHidden = FALSE)
+  
+  
+  output$dtdata_D1 = renderDT({
+    req(data_D1())
+    if(input$summ_viewtable_D1 == TRUE){
+      data_D1()
+    }else{
+      data_notsumm_D1()
+    }
+  })
+  
+  
+  
+  ##### informative plots D1######
+  
+  output$countbarplot_D1 = plotly::renderPlotly({
+    req(data_D1(), exp_list_D1())
+    
+    count = data_D1() %>% dplyr::select(where(is.character)) %>% dplyr::mutate(across(where(is.character), ~length(unique(.x))))
+    count = t(count[1,])
+    colnames(count) = "Count"
+    count = count %>% as.data.frame() %>% tibble::rownames_to_column("Measure")
+    count$Var = count$Measure
+    
+    inst = as.data.frame(table(exp_list_D1()$Instrument))
+    inst$Measure = "Instrument"
+    scanint = rbind(inst)
+    colnames(scanint) = c("Var", "Count","Measure")
+    
+    count = rbind(count,scanint)
+    count$Measure = factor(count$Measure, levels = unique(count$Measure))
+    count$Var = factor(count$Var, levels = unique(count$Var))
+    temp = ggplot(count, aes(x = Measure, y = Count)) + geom_col(aes(fill = Var)) + 
+      geom_text(aes(label=Count)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
+      theme(axis.text.x = element_text(angle = 315, hjust = 0))
+    
+    plotly::ggplotly(temp)
+    
+  })
+  
+  
+  output$prodfam_barplot_D1 = plotly::renderPlotly({
+    req(data_D1())
+    
+    prod_table =  as.data.frame(table(data_D1()$Product_Family))
+    colnames(prod_table)[1] = "Product_Family"
+    
+    prod_table = prod_table[order(-prod_table$Freq),]
+    prod_table$Product_Family = factor(prod_table$Product_Family, levels = rev(prod_table$Product_Family))
+    
+    
+    if(input$first50_prodfam_D1 == TRUE && length(unique(data_D1()$Product_Family)) > 50){
+      prod_table = prod_table[1:50,]
+    }
+    
+    temp = ggplot(prod_table) + geom_col(aes(y = Product_Family, x = Freq, fill = Product_Family))+ 
+      xlab("Number of samples")+ ylab("Product Family") + ggtitle("Sample for each Product Family") + 
+      theme(axis.text.y = element_text(size = 7.4))
+    
+    plotly::ggplotly(temp, tooltip = c("x", "fill"))
+  })
+  
+  output$prodfam_barplotUI_D1 = renderUI({
+    
+    if(input$first50_prodfam_D1 == TRUE || length(unique(data_D1()$Product_Family)) < 50){
+      size_plot = 84 + 640
+    }else{
+      size_plot = 84 + (640*length(unique(data_D1()$Product_Family)))/(50 + length(unique(data_D1()$Product_Family))/10) #640 found with html inspect when 50 prod are shown.
+    }
+    
+    plotly::plotlyOutput("prodfam_barplot_D1", height = paste0(size_plot,"px"))
+  })
+  
+  
+  ####barplot D1 ####
+  
+  output$show_barplot2_D1 = reactive({
+    ifelse(input$add_barplot_D1 %%2 == 1, TRUE, FALSE)
+  })
+  outputOptions(output, "show_barplot2_D1", suspendWhenHidden = FALSE)
+  
+  
+  observeEvent(input$add_barplot_D1,{
+    if(input$add_barplot_D1 %%2 == 1){
+      updateActionButton(session, "add_barplot_D1",label = HTML("&nbsp;Remove second barplot"),icon("minus")) 
+    }else{
+      updateActionButton(session, "add_barplot_D1", label = HTML("&nbsp;Add another barplot"), icon("plus"))
+    }
+  })
+  
+  
+  observeEvent(data_D1(),{
+    updateSelectInput(session, "model_filt_bar_D1", choices = unique(data_D1()$Model_type))
+    updateSelectInput(session, "model_filt_bar2_D1", choices = unique(data_D1()$Model_type))
+    
+  })
+  
+  observeEvent(input$model_filt_bar_D1,{
+    family = data_D1() %>% dplyr::filter(Model_type == input$model_filt_bar_D1) %>%
+      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
+    updateSelectInput(session, "family_filt_bar_D1", choices = unique(family))
+  })
+  
+  
+  output$check_multID_bar1_D1 = reactive({
+    req(data_notsumm_D1())
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1)
+    ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
+  })
+  outputOptions(output, "check_multID_bar1_D1", suspendWhenHidden = FALSE)
+  
+  
+  output$barplot_D1 = plotly::renderPlotly({
+    req(data_notsumm_D1())
+    
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1)
+    cnts = data_notsumm_D1() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
+    data_plot_not = rbind(data_plot_not1, cnts)
+    
+    if(all(c("LPS") %in% cnts$Product)){
+      level_order = c("CTRL", "LPS", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
+    
+
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar_D1), fill = factor(Dose)))+
+      coord_cartesian(ylim=c(0, 100)) + 
+      geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
+      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      xlab("Product") + ggtitle(input$family_filt_bar_D1) + labs(fill = "Dose") +
+      theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
+    
+    
+    if(length(unique(data_plot_not$Experiment_id)) >1){
+      showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_bar_D1,". 
+                                                  You can summarise them (Faceting expID to FALSE) or you can
+                                                  facet (Faceting expID to TRUE)")), type = "default")
+      if(input$facet_bar_D1 == TRUE){
+        plot = plot + facet_grid(~Experiment_id, scales = "free", switch = "x")
+      }
+    }
+    
+    if(input$addpoints_barplot_D1 == TRUE){
+      plot = plot + geom_point(position = position_dodge(width = 1))
+    }
+    
+    plotly::ggplotly(plot)
+    
+  })
+  
+  
+  
+  ### second barplot
+  observeEvent(input$model_filt_bar2_D1,{
+    family = data_D1() %>% dplyr::filter(Model_type == input$model_filt_bar2_D1) %>%
+      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
+    updateSelectInput(session, "family_filt_bar2_D1", choices = unique(family))
+  })
+  
+  
+  
+  output$check_multID_bar2_D1 = reactive({
+    req(data_notsumm_D1())
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1)
+    ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
+  })
+  outputOptions(output, "check_multID_bar2_D1", suspendWhenHidden = FALSE)
+  
+  
+  output$barplot2_D1 = plotly::renderPlotly({
+    req(data_notsumm_D1())
+    
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1)
+    cnts = data_notsumm_D1() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
+    data_plot_not = rbind(data_plot_not1, cnts)
+
+    if(all(c("LPS") %in% cnts$Product_Family)){
+      level_order = c("CTRL", "LPS", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
+    
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2_D1), fill = factor(Dose)))+
+      coord_cartesian(ylim=c(0, 100)) + 
+      geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
+      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      xlab("Product") + ggtitle(input$family_filt_bar2_D1) + labs(fill = "Dose") +
+      theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
+    
+    
+    if(length(unique(data_plot_not$Experiment_id)) >1){
+      showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_bar2_D1,". 
+                                                  You can summarise them (Faceting expID to FALSE) or you can
+                                                  facet (Faceting expID to TRUE)")), type = "default")
+      if(input$facet_bar2_D1 == TRUE){
+        plot = plot + facet_grid(~Experiment_id, scales = "free", switch = "x")
+      }
+    }
+    
+    if(input$addpoints_barplot2_D1 == TRUE){
+      plot = plot + geom_point(position = position_dodge(width = 1))
+    }
+    
+    plotly::ggplotly(plot)
+    
+  })
+  
+  ##### spiderplot d1 ####
+  
+  mod_spiderplot_server("spiderplot_D1", data = data_D1)
+  
+  ##### bubbleplot d1 #####
+  mod_bubble_plot_server("bubbleplot_D1", data = data_D1, type_data = "D1")
+  
   
 }

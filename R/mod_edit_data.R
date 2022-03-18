@@ -23,7 +23,7 @@
 mod_edit_data_ui <- function(id){
   ns <- NS(id)
   tagList(
-    fluidPage(
+    #fluidPage(
     useShinyjs(),
     cicerone::use_cicerone(),
 
@@ -61,7 +61,7 @@ mod_edit_data_ui <- function(id){
       fluidRow(column(12, style = "padding-left: 5px;", dataEditUI(ns("edit1"))))
                      
     ) #end of shinybsmodal
-    )
+    #)
   )
 }
     
