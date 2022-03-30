@@ -21,15 +21,15 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     
     tags$link(rel = "stylesheet", type="text/css", href="www/custom_notifications.css"),
+    tags$link(rel = "stylesheet", type="text/css", href="www/custom_sidebarpanels.css"),
     
-
     bs4Dash::dashboardPage(
       title = "ADViSEBioassay",
  
       header = bs4DashNavbar(
         skin = "light", status = "primary",
         title = dashboardBrand("ADViSEBioassay", color = "primary", 
-                               href = "https://github.com/ShinyFabio/ADViSEBioassay", image = "www/NewLogoAL.png"),
+                               href = "https://github.com/ShinyFabio/ADViSEBioassay", image = "www/logo_ADViSEBioassay.png"),
         
         rightUi = tags$li(class = "dropdown", actionButton(inputId  = "jumptohome", label =NULL, icon = icon("home"),status = "primary")) #
       ),
@@ -37,10 +37,22 @@ app_ui <- function(request) {
       sidebar = bs4Dash::dashboardSidebar(
         skin = "light", 
         inputId = "sidebarState",
-        bs4Dash::sidebarUserPanel(
-          name = textOutput("nome"), 
-          #subtitle = actionButton('change','Change', style='padding:0px; height:18px; font-size:90%'),
-          image = "www/userimage.png"),
+        
+        
+        tags$div(
+          class = "user-panel mt-3 pb-3 mb-3",
+          fluidRow(
+            column(3, tags$img(src = "www/userimage.png",style = "width:45px;", class = "img-circle elevation-2")),
+            column(8, 
+                   fluidRow(textOutput("nome"), style = "color:white;"),
+                   fluidRow(actionButton('change','Change', 
+                                style='padding:0px; height:18px; font-size:90%;background-color: #2c2f76;border-color: #2c2f76;color: white;'))
+          ))),
+        
+        # bs4Dash::sidebarUserPanel(
+        #   name = textOutput("nome"), 
+        #   #subtitle = actionButton('change','Change', style='padding:0px; height:18px; font-size:90%'),
+        #   image = "www/userimage.png"),
         
         bs4Dash::sidebarMenu(
           id = "sidebarmenu",
@@ -61,7 +73,9 @@ app_ui <- function(request) {
           tabItem(
             tabName = "home",
             h1(strong("Welcome to ADViSEBioassay!")),
-            fluidRow(tags$img(src = "www/advise_logo.png")),
+            fluidRow(
+              column(6,tags$img(src = "www/advise_logo.png", width = "600px")),
+              column(4, tags$img(src = "www/logo_ADViSEBioassay.png", width = "250px"))),
             #fluidRow(column(8,offset = 1,tags$img(src = "www/NewLogoAL.png", width = "200px")))),
           ),
           
@@ -223,19 +237,28 @@ app_ui <- function(request) {
                              column(6, selectInput("mod_filt_heatmap", "Filter Model type (rows)", choices = "",multiple = TRUE)),
                              column(6, selectInput("column_filt_heatmap", "Filter Product (columns)", choices = "",multiple = TRUE))
                            ),
+                           
+
                            fluidRow(
                              column(6, selectInput("dose_op_heatmap", "Operation with doses", choices = c("filter", "mean", "subtract"))),
                              
-                             conditionalPanel(
-                               condition = "input.dose_op_heatmap == 'filter'",
-                               shiny::column(6, radioButtons("filt_dose", "Filter dose", choices = "",inline = TRUE))
-                             ),
-                             
-                             conditionalPanel(
-                               condition = "input.dose_op_heatmap == 'subtract'",
-                               shiny::column(4, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
-                               shiny::column(1, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt")))
+                             column(
+                               6,
+                               conditionalPanel(
+                                 condition = "input.dose_op_heatmap == 'filter'",
+                                 radioButtons("filt_dose", "Filter dose", choices = "",inline = TRUE)
+                               ),
+                               
+                               conditionalPanel(
+                                 condition = "input.dose_op_heatmap == 'subtract'",
+                                 fluidRow(
+                                   column(6, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
+                                   column(6, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt"))))
+                               )
                              )
+                             
+                             
+                             
                            ),
                            #awesomeCheckbox("logheat", "Log2 scale", value = FALSE),
                            # fluidRow(
@@ -492,6 +515,87 @@ app_ui <- function(request) {
               tabPanel(
                 "Bubbleplot",
                 mod_bubble_plot_ui("bubbleplot_D1", c("CV"))
+              ),
+              
+              tabPanel(
+                "Heatmap",
+                sidebarLayout(
+                  sidebarPanel(
+                    width = 3,
+                    div(actionButton("makeheatmap_D1", label = "Make Heatmap", class = "btn btn-primary btn-lg", width = "140px", style='padding:5px; font-size:130%; font-weight: bold;'), align= "center"),
+                    br(),
+                    h4(strong("Data filtering")),
+                    fluidRow(
+                      column(6,selectInput("typeeval_heat_D1", "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
+                      column(6, selectInput("prodfam_heat_D1", "Select a Product Family", choices = ""))
+                    ),
+                    
+                    fluidRow(
+                      column(6, selectInput("dose_op_heatmap_D1", "Operation with doses", choices = c("filter", "mean", "subtract"))),
+                      
+                      column(
+                        6,
+                        conditionalPanel(
+                          condition = "input.dose_op_heatmap_D1 == 'filter'",
+                          radioButtons("filt_dose_D1", "Filter dose", choices = "",inline = TRUE)
+                        ),
+                        
+                        conditionalPanel(
+                          condition = "input.dose_op_heatmap_D1 == 'subtract'",
+                          fluidRow(
+                            column(6, selectInput("subdose_heatmap_D1", "Subtract:", choices = c("30-5"))),
+                            column(6, style="padding-top: 5px;",br(), actionButton("revdose_heat_D1", icon("exchange-alt"))))
+                        )
+                      )
+
+                    ),
+                    
+                    hr(),
+                    h4(strong("Data heatmap")),
+                   # fluidRow(
+                     # column(5, style="padding-top: 5px;", br(), 
+                   awesomeCheckbox("show_valheat_D1", "Show cell values"),
+                      # column(7, 
+                      #        conditionalPanel(
+                      #          condition = "input.show_valheat_D1 == true", 
+                      #          sliderInput("range_showvalheat_D1", "Threshold", value = 0, min = 0, max = 100)))
+                      #),
+                    
+                    h4(strong("Dendrogramm options")),
+                    ###dendrogramm on column or row?
+                    fluidRow(
+                      column(6, materialSwitch(inputId = "rowdend_D1", label = "Row",  value = FALSE, status = "primary", width = "90%"))
+                    ),
+                    
+                    conditionalPanel(
+                      condition = "input.rowdend_D1 == 1",
+                      fluidRow(
+                        column(6,
+                               selectInput("seldistheat_D1", "Distance function:", choices = c("euclidean", "maximum", "canberra"), selected = "euclidean")
+                        ),
+                        column(6,
+                               selectInput("selhclustheat_D1", "Clustering method:", choices = c("ward.D2", "complete", "average" , "median"), selected = "complete")
+                        )
+                      ),
+                      fluidRow(
+                        hr(),
+                        sliderInput("sliderrowheat_D1", "Row cluster number:", min=2, max = 10, value=2, step = 1)
+                      )
+                    )
+                    
+                    # conditionalPanel(condition = "input.rowdend == 0",
+                    #                  h5(strong("Order data by annotation?")),
+                    #                  awesomeCheckbox("heatsort", label = "Order", value = TRUE)
+                    # ),
+                    
+       
+                  ),
+                  
+                  mainPanel(
+                    width = 9,
+                    InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_D1_output", layout = "1|(2-3)", width1 = 1000, height1 = 800)
+                  )
+                )
               )
               
               

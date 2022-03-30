@@ -26,16 +26,23 @@ mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
         fluidRow(
           column(6, selectInput(ns("dose_op_bubb"), "Operation with doses", choices = c("filter", "mean", "subtract"))),
           
-          conditionalPanel(
-            condition = "input.dose_op_bubb == 'filter'", ns= ns,
-            column(6, radioButtons(ns("filt_dose_bubb"), "Filter dose", choices = "",inline = TRUE))
-          ),
-          
-          conditionalPanel(
-            condition = "input.dose_op_bubb == 'subtract'", ns = ns,
-            column(4, selectInput(ns("subdose_bubb"), "Subtract:", choices = c("30-5"))),
-            column(1, style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("exchange-alt")))
+
+          column(
+            6,
+            conditionalPanel(
+              condition = "input.dose_op_bubb == 'filter'", ns= ns,
+              radioButtons(ns("filt_dose_bubb"), "Filter dose", choices = "",inline = TRUE)),
+            
+            conditionalPanel(
+              condition = "input.dose_op_bubb == 'subtract'", ns = ns,
+              fluidRow(
+                column(6,selectInput(ns("subdose_bubb"), "Subtract:", choices = c("30-5"))),
+                column(6,style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("exchange-alt"))))
+            )
+            
           )
+          
+
         ),
         
         h4(strong("Plot options")),
@@ -197,14 +204,14 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
         ##### subtract option
       }else{
         combination = strsplit(input$subdose_bubb, "-")
-        cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))), Dose) %>% 
+        cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric), Dose))) %>% 
           dplyr::summarise(across(c(type_meas, type_cv), ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
           dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
         
         if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
           showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
                                                     Duplicated will be averaged.")), type = "default")
-          cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric))), Dose) %>% 
+          cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
             dplyr::summarise(across(c(type_meas, type_cv), mean, na.rm = T)) %>% dplyr::ungroup()
         }
         
@@ -235,11 +242,19 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
       
       type_cv = ifelse(type_data == "cyto", input$varsize_bubb, paste0(input$typeeval_bubb, ".CV"))
-
-      temp = ggplot(order_data(data_bubble(),as_factor = TRUE), aes(x = Product, y = Model_type)) +
+      ord = order_data(data_bubble(),as_factor = TRUE)
+      
+      temp = ggplot(ord, aes(x = Product, y = Model_type)) +
         geom_point(aes(size = !!sym(type_cv), color = !!sym(type_meas)), alpha = 0.75, shape = 16) + 
         scale_size_continuous(range = c(1,10)) +
         theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
+      
+      #se ci sono NA in type_cv aggiungo i punti
+      if(TRUE %in% is.na(ord[,type_cv])){
+        temp = temp + geom_point(data = dplyr::filter(ord, is.na(dplyr::across(type_cv))), aes(color = !!sym(type_meas),shape='NA'), size=4) +
+          scale_shape_manual(values=c('NA'=17, 'Not NA'=19))
+      }
+      
       
       if(input$dose_op_bubb == "filter"){
         temp = temp + facet_wrap(~Dose)

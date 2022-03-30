@@ -52,23 +52,22 @@ make_heatmap = function(data,
                         typeeval_heat = "Cytotoxicity.average"){
   
 #data = dplyr::arrange(data, Product_Family)
-
+#data = cbc_filtered
   if(order_data == TRUE){
     data = order_data(data, as_factor = FALSE)
   }
 
   
-  #filter column
-  if(!("All" %in% filt_data_col)){
-    temp = dplyr::filter(data, Product_Family %in% filt_data_col)
-    data_for_annotcol = dplyr::filter(data, Product_Family %in% filt_data_col)
-  }else{
+  # #filter column
+  # if(!("All" %in% filt_data_col)){
+  #   temp = dplyr::filter(data, Product_Family %in% filt_data_col)
+  # }else{
     temp = data
-    data_for_annotcol = data
-  }
+  # }
+  data_for_annotcol = temp
   
   temp = temp %>% dplyr::select(Product, Model_type, dplyr::all_of(typeeval_heat)) %>%
-    tidyr::pivot_wider( names_from = "Product", values_from = typeeval_heat) %>%
+    tidyr::pivot_wider(names_from = "Product", values_from = typeeval_heat) %>%
     tibble::column_to_rownames("Model_type")
 
 
@@ -110,7 +109,7 @@ make_heatmap = function(data,
 #   legend_col = circlize::colorRamp2(c(-max_legend, 0, max_legend), c("blue", "white", "red"))
 # }
 
-#dendrogram = none', 'row', 'column' or 'both' 
+#dendrogram 
 if(row_dend == TRUE){
   row_dend2 = temp %>% stats::dist(method = dist_method) %>% stats::hclust(method = clust_method) %>% stats::as.dendrogram()
   row_dend2 = dendextend::color_branches(row_dend2, k = row_nclust)
@@ -134,36 +133,37 @@ if(col_dend == TRUE){
 getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))
 
 
+
+
+
 #row annotation
 if(!is.null(add_rowannot)){
   
-  
-  roww = data %>% dplyr::filter(Product_Family == "CTRL") %>% dplyr::select(Model_type, add_rowannot) %>% 
-    tibble::column_to_rownames("Model_type")
+  roww = data_for_annotcol %>% dplyr::select(Model_type, add_rowannot) 
   row_ha = c()
   for(i in add_rowannot){
     
     if(is.character(roww[[i]]) || is.factor(roww[[i]])){
-      leng_row = roww[,i] %>% table() %>% length()
-      colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww[,i])))) #oppure getPalette
+      roww2 = roww %>% dplyr::select(Model_type, i) %>% distinct() %>% tibble::column_to_rownames("Model_type")
+      leng_row = roww2[,i] %>% table() %>% length()
+      colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww2[,i])))) #oppure getPalette
       colorannot_row = stats::setNames(list(colorannot_row), paste(i))
-      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = dplyr::select(roww,i), col = c(colorannot_row), border = TRUE))
+      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = roww2[i], col = c(colorannot_row), border = TRUE))
+      
+
+      
     }else if(is.numeric(roww[[i]])) {
       
       col_fun2 = list(circlize::colorRamp2(breaks = c(min(roww[,i]), max(roww[,i])), colors = c("white","orange")))
       #here I have to make a list ad assign a name like this otherwise random color
       names(col_fun2) = i
-      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = dplyr::select(roww, dplyr::all_of(i)), col = col_fun2, border = TRUE))
+      row_ha = append(row_ha, ComplexHeatmap::rowAnnotation(df = as.data.frame(roww[i]), col = col_fun2, border = TRUE))
+      
     }else{
       message("Something wrong with the row annotation. The class isn't numeric, character or factor.")
     }
   }
 
-  #roww = data %>% dplyr::select(Model_type, dplyr::all_of(add_rowannot)) %>% distinct() %>% tibble::column_to_rownames("Model_type")
-  #leng_row = roww %>% table() %>% length()
-  #colorannot_row = stats::setNames(grDevices::rainbow(n = leng_row), c(row.names(table(roww)))) #oppure getPalette
-  #colorannot_row = stats::setNames(list(colorannot_row), paste(add_rowannot))
-  #row_ha = ComplexHeatmap::HeatmapAnnotation(df = roww, which = "row", col = colorannot_row, border = TRUE)
 }else{
   row_ha = NULL
 }
