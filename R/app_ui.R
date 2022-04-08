@@ -22,7 +22,7 @@ app_ui <- function(request) {
     
     tags$link(rel = "stylesheet", type="text/css", href="www/custom_notifications.css"),
     tags$link(rel = "stylesheet", type="text/css", href="www/custom_sidebarpanels.css"),
-    
+
     bs4Dash::dashboardPage(
       title = "ADViSEBioassay",
  
@@ -48,11 +48,6 @@ app_ui <- function(request) {
                    fluidRow(actionButton('change','Change', 
                                 style='padding:0px; height:18px; font-size:90%;background-color: #2c2f76;border-color: #2c2f76;color: white;'))
           ))),
-        
-        # bs4Dash::sidebarUserPanel(
-        #   name = textOutput("nome"), 
-        #   #subtitle = actionButton('change','Change', style='padding:0px; height:18px; font-size:90%'),
-        #   image = "www/userimage.png"),
         
         bs4Dash::sidebarMenu(
           id = "sidebarmenu",
@@ -92,9 +87,7 @@ app_ui <- function(request) {
                     fluidRow(
                       column(10, fileInput("exp_list_file","Select the Experiment list file (.xlsx)")),
                       column(
-                        2, style="padding-left: 9px; padding-top: 4px;",br(), 
-                        tags$head(tags$style("#edit_exp_list-upinternalmodal .modal-dialog{ width:1300px}")),
-                        tags$head(tags$style("#edit_exp_list-upinternalmodal .modal-body{ min-height:1000px}")),
+                        2, style="padding-left: 9px; padding-top: 4px;",br(),
                         mod_edit_data_ui("edit_exp_list"))
                     ),
                     conditionalPanel(
@@ -103,11 +96,12 @@ app_ui <- function(request) {
                         column(10, fileInput("target_file","Select the Target file (.xlsx)")),
                         column(
                           2, br(), style="padding-left: 9px; padding-top: 4px;",
-                          tags$head(tags$style("#edit_target-upinternalmodal .modal-dialog{ width:1300px}")),
-                          tags$head(tags$style("#edit_target-upinternalmodal .modal-body{ min-height:1000px}")),
                           mod_edit_data_ui("edit_target"))
                       )
                     ),
+                    
+                    shinyFiles::shinyDirButton("datafolder_cyto", label = "Browse...",
+                                               title = "Please select the data folder", multiple = FALSE, icon = icon("folder-open")),
                     conditionalPanel(
                       condition = "output.check_target == false",
                       div(actionButton("gocyto", "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
@@ -221,6 +215,13 @@ app_ui <- function(request) {
                 mod_spiderplot_ui("spiderplot_cyto")
               ),
               
+              
+              ##### BubblePlot #####
+              tabPanel(
+                "Bubble Plot",
+                mod_bubble_plot_ui("bubbleplot_cyto",  c("Corrected_value", "CV"))
+              ),
+              
               #### Heatmap ####
               tabPanel("Heatmap",
                        sidebarLayout(
@@ -233,12 +234,13 @@ app_ui <- function(request) {
                              column(6,selectInput("typeeval_heat", "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
                              column(6, selectInput("prod_filt_heatmap", "Select a Product Family", choices = ""))
                            ),
+                           selectInput("purif_filt_heat", "Select a purification", choices = "", multiple = FALSE),
                            fluidRow(
                              column(6, selectInput("mod_filt_heatmap", "Filter Model type (rows)", choices = "",multiple = TRUE)),
                              column(6, selectInput("column_filt_heatmap", "Filter Product (columns)", choices = "",multiple = TRUE))
                            ),
                            
-
+                           
                            fluidRow(
                              column(6, selectInput("dose_op_heatmap", "Operation with doses", choices = c("filter", "mean", "subtract"))),
                              
@@ -336,50 +338,6 @@ app_ui <- function(request) {
                                    InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_output", layout = "1|(2-3)", width1 = 1000, height1 = 600)
                          )
                        )
-              ),
-              
-              ##### BubblePlot #####
-              tabPanel(
-                "Bubble Plot",
-                mod_bubble_plot_ui("bubbleplot_cyto",  c("Corrected_value", "CV"))
-                # sidebarLayout(
-                #   sidebarPanel(
-                #     width = 3,
-                #     
-                #     h4(strong("Data filtering")),
-                #     fluidRow(
-                #       column(6,selectInput("typeeval_bubb", "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
-                #       column(6, selectInput("prod_filt_bubb", "Select a Product Family", choices = ""))
-                #     ),
-                #     fluidRow(
-                #       column(6, selectInput("mod_filt_bubb", "Filter Model type (rows)", choices = "",multiple = TRUE)),
-                #       column(6, selectInput("column_filt_bubb", "Filter Product (columns)", choices = "",multiple = TRUE))
-                #     ),
-                #     fluidRow(
-                #       column(6, selectInput("dose_op_bubb", "Operation with doses", choices = c("filter", "mean", "subtract"))),
-                #       
-                #       conditionalPanel(
-                #         condition = "input.dose_op_bubb == 'filter'",
-                #         column(6, radioButtons("filt_dose_bubb", "Filter dose", choices = "",inline = TRUE))
-                #       ),
-                #       
-                #       conditionalPanel(
-                #         condition = "input.dose_op_bubb == 'subtract'",
-                #         column(4, selectInput("subdose_bubb", "Subtract:", choices = c("30-5"))),
-                #         column(1, style="padding-top: 5px;",br(), actionButton("revdose_bubb", icon("exchange-alt")))
-                #       )
-                #     ),
-                #     
-                #     h4(strong("Plot options")),
-                #     selectInput("varsize_bubb", "Variable for size argument", choices = c("Corrected_value", "CV"))
-                #     
-                #   ),
-                #   
-                #   mainPanel(
-                #     width = 9,
-                #     shinycssloaders::withSpinner(plotly::plotlyOutput("bubbleplot",height = "650px"))
-                #   )
-                # )
               )
               
               
@@ -402,8 +360,6 @@ app_ui <- function(request) {
                       column(10, fileInput("exp_list_file_D1","Select the Experiment list file (.xlsx)")),
                       column(
                         2, style="padding-left: 9px; padding-top: 4px;",br(), 
-                        tags$head(tags$style("#edit_exp_list_D1-upinternalmodal .modal-dialog{ width:1300px}")),
-                        tags$head(tags$style("#edit_exp_list_D1-upinternalmodal .modal-body{ min-height:1000px}")),
                         mod_edit_data_ui("edit_exp_list_D1"))
                     ),
                     conditionalPanel(
@@ -412,8 +368,6 @@ app_ui <- function(request) {
                         column(10, fileInput("target_file_D1","Select the Target file (.xlsx)")),
                         column(
                           2, br(), style="padding-left: 9px; padding-top: 4px;",
-                          tags$head(tags$style("#edit_target_D1-upinternalmodal .modal-dialog{ width:1300px}")),
-                          tags$head(tags$style("#edit_target_D1-upinternalmodal .modal-body{ min-height:1000px}")),
                           mod_edit_data_ui("edit_target_D1"))
                       )
                     ),
@@ -513,7 +467,7 @@ app_ui <- function(request) {
               ),
               
               tabPanel(
-                "Bubbleplot",
+                "Bubble Plot",
                 mod_bubble_plot_ui("bubbleplot_D1", c("CV"))
               ),
               
@@ -529,7 +483,7 @@ app_ui <- function(request) {
                       column(6,selectInput("typeeval_heat_D1", "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
                       column(6, selectInput("prodfam_heat_D1", "Select a Product Family", choices = ""))
                     ),
-                    
+                    selectInput("purif_filt_heat_D1", "Select a purification", choices = "", multiple = FALSE),
                     fluidRow(
                       column(6, selectInput("dose_op_heatmap_D1", "Operation with doses", choices = c("filter", "mean", "subtract"))),
                       

@@ -19,6 +19,7 @@ mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
           column(6,selectInput(ns("typeeval_bubb"), "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
           column(6, selectInput(ns("prod_filt_bubb"), "Select a Product Family", choices = ""))
         ),
+        selectInput(ns("purif_filt_bubb"), "Select a purification", choices = "", multiple = FALSE),
         fluidRow(
           column(6, selectInput(ns("mod_filt_bubb"), "Filter Model type (rows)", choices = "",multiple = TRUE)),
           column(6, selectInput(ns("column_filt_bubb"), "Filter Product (columns)", choices = "",multiple = TRUE))
@@ -81,20 +82,30 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       updateSelectInput(session, "prod_filt_bubb", choices = unique(prod_total()$Product_Family))
     })
     
-    
+    #purification filtering
     observeEvent(input$prod_filt_bubb,{
       doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
+      updateSelectInput(session, "purif_filt_bubb", choices = unique(doses$Purification), selected = unique(doses$Purification)[1])
+    })
+    
+    
+    observeEvent(c(input$prod_filt_bubb, input$purif_filt_bubb),{
+      doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb) %>% 
+        dplyr::filter(Purification == input$purif_filt_bubb)
       
       #row filtering
       updateSelectInput(session, "mod_filt_bubb", choices = c("All", unique(doses$Model_type)), selected = "All")
       
       #column filtering
       updateSelectInput(session, "column_filt_bubb", choices = c("All", "CTRL", "CTRL+", input$prod_filt_bubb), selected = "All")
+      
     })
     
     
     observe({
-      doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
+      doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb) %>% 
+        dplyr::filter(Purification == input$purif_filt_bubb)
+      
       if(!("All" %in% input$mod_filt_bubb)){
         doses = dplyr::filter(doses, Model_type %in% input$mod_filt_bubb)
       }
@@ -137,7 +148,8 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       #measure type
       type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
       
-      CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
+      CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb) %>% 
+        dplyr::filter(Purification == input$purif_filt_bubb)
       
       ### model type filtering
       if(is.null(input$mod_filt_bubb)){

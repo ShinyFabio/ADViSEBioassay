@@ -17,6 +17,10 @@
 #' @importFrom janitor remove_empty
 #' @importFrom tidyr unite pivot_wider
 #' @importFrom stringr str_detect str_split_fixed
+#' @importFrom grDevices colorRampPalette
+#' @importFrom RColorBrewer brewer.pal
+#' @importFrom ComplexHeatmap HeatmapAnnotation Heatmap
+#' @importFrom grid unit gpar
 #' @importFrom InteractiveComplexHeatmap makeInteractiveComplexHeatmap
 #' @noRd
 app_server <- function( input, output, session ) {
@@ -85,6 +89,24 @@ app_server <- function( input, output, session ) {
   
 
   exp_list = mod_edit_data_server("edit_exp_list", data_input = exp_list_to_edit, maxrows = 200)
+  
+  
+  ####select the data folder where to read data
+  
+  # this makes the directory at the base of your computer.
+  volumes = c(Home = fs::path_home(), shinyFiles::getVolumes()())
+  
+  shinyFiles::shinyDirChoose(input, 'datafolder_cyto', roots = volumes, session = session)
+  
+  data_path = reactive({
+    if(length(input$datafolder_cyto) != 1 ) {
+      shinyFiles::parseDirPath(volumes,input$datafolder_cyto)
+    }else{
+      NULL
+    }
+  })
+  
+  
   
   #check data correctly loaded
   output$check_explist = reactive(
@@ -296,8 +318,8 @@ app_server <- function( input, output, session ) {
     count = rbind(count,scanint)
     count$Measure = factor(count$Measure, levels = unique(count$Measure))
     count$Var = factor(count$Var, levels = unique(count$Var))
-    temp = ggplot(count, aes(x = Measure, y = Count)) + geom_col(aes(fill = Var)) + 
-      geom_text(aes(label=Count)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
+    temp = ggplot(count, aes(x = Measure, y = Count, group = Var)) + geom_col(aes(fill = Var)) + 
+      geom_text(aes(label=Count),position = position_stack(vjust = 0.5)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
       theme(axis.text.x = element_text(angle = 315, hjust = 0))
     
     plotly::ggplotly(temp)
@@ -402,24 +424,8 @@ app_server <- function( input, output, session ) {
     
     
     unit_legend = "N of samples"
-    # if(input$scale_heatinform == "By column"){
-    #   prod_table2 = scale(prod_table2) # scale and center columns
-    #   #ora se ho una colonna con tutti 0, scale restituisce una colonna con tutti NaN. Qui sostituisco le colonne
-    #   #con tutti NaN con tutti 0. QUesta parte non dovrebbe servire
-    #   for(i in seq(1:length(prod_table2[1,]))){
-    #     if(mean(is.na(prod_table2[,i])) == 1){
-    #       prod_table2[,i] = 0
-    #     }
-    #   }
-    #   unit_legend = "Z-score"
-    # } else if(input$scale_heatinform == "By row"){
-    #   prod_table2 = t(scale(t(prod_table2))) # scale and center rows
-    #   unit_legend = "Z-score"
-    # }
-    # 
-    
+
     #col annotation
-    #creo l'annotazione
     getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))
     
     annotdata_col = data_wout_cnt %>% dplyr::select(Model_type, Model_Family) %>% dplyr::distinct() %>% 
@@ -429,16 +435,18 @@ app_server <- function( input, output, session ) {
     colorannot_col = stats::setNames(list(colorannot_col), paste("Model_Family"))
     col_ha = ComplexHeatmap::HeatmapAnnotation(df = annotdata_col, which = "column", col = colorannot_col, border = TRUE)
 
+    prod_table2 = prod_table2 %>% as.data.frame() %>% tidyr::pivot_wider(names_from = "Model_type",values_from = "Freq") %>%
+      dplyr::mutate(dplyr::across(.cols = -1, ~ cut(.x, breaks=c(-Inf,0, 10, 50, 100, Inf), labels=c('0', '0-10', '10-50', '50-100', '>100')))) %>% 
+      tibble::column_to_rownames("Product_Family") %>% as.matrix()
+    
     ComplexHeatmap::Heatmap(prod_table2, name = unit_legend, rect_gp = grid::gpar(col = "white", lwd = 1), 
                             row_title = "Product Family", column_title = "Model type", 
                             row_names_gp = grid::gpar(fontsize = 6), column_names_gp = grid::gpar(fontsize = 8), #size testo
                             cluster_rows = FALSE, cluster_columns = FALSE, 
                             bottom_annotation = col_ha,
                             row_gap = grid::unit(2, "mm"), column_gap = grid::unit(2, "mm"), #spazio tra le divisioni
-                            col = c("white", "blue")
-                            #cell_fun = cell_values
-    )
-    
+                            col = structure(c("red","orange", "blue","lightblue","white"), names = c('>100','50-100', '10-50', '0-10', '0'))
+    ) %>% ComplexHeatmap::draw(merge_legend = TRUE, padding = unit(c(2, 2, 2, 5), "mm"))
   })
   
   
@@ -451,186 +459,7 @@ app_server <- function( input, output, session ) {
   
   mod_bubble_plot_server("bubbleplot_cyto", data = data)
   
-  # 
-  # # DATA STORAGE
-  # values_comb_bubb <- reactiveValues(
-  #   comb = NULL # original data
-  # )
-  # 
-  # observeEvent(prod_total(),{
-  #   updateSelectInput(session, "prod_filt_bubb", choices = unique(prod_total()$Product_Family))
-  #   
-  #   values_comb_bubb$comb <- rev(unique(prod_total()$Dose))
-  # })
-  # 
-  # 
-  # observeEvent(input$revdose_bubb,{
-  #   values_comb_bubb$comb <- rev(values_comb_bubb$comb)
-  # })
-  # 
-  # observeEvent(values_comb_bubb$comb,{
-  #   req(values_comb_bubb$comb)
-  #   if(!is.null(values_comb_bubb$comb)){
-  #     combin = combn(values_comb_bubb$comb, 2, paste, collapse = '-')
-  #     updateSelectInput(session, "subdose_bubb", choices = combin)
-  #   }
-  # })
-  # 
-  # 
-  # 
-  # 
-  # observeEvent(input$prod_filt_bubb,{
-  #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
-  #   updateSelectInput(session, "mod_filt_bubb", choices = c("All", unique(prod_total()$Model_type)), selected = "All")
-  #   updateRadioButtons(session, "filt_dose_bubb", choices = c("All",unique(doses$Dose)),inline = TRUE)
-  # 
-  #   #column filtering
-  #   updateSelectInput(session, "column_filt_bubb", choices = c("All", "CTRL", "CTRL+", input$prod_filt_bubb), selected = "All")
-  # })
-  # 
-  # 
-  # 
-  # observeEvent(input$column_filt_bubb,{
-  #   if(input$column_filt_bubb %in% input$prod_filt_bubb || "All" %in% input$column_filt_bubb){
-  #     updateSelectInput(session, "dose_op_bubb", choices = c("filter", "mean", "subtract"))
-  #   }else{
-  #     updateSelectInput(session, "dose_op_bubb", choices = c("filter", "mean"))
-  #   }
-  # })
-  # 
-  # 
-  # 
-  # data_bubble = reactive({
-  #   req(prod_total())
-  #   
-  #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb)
-  #   
-  #   ### model type filtering
-  #   if(is.null(input$mod_filt_bubb)){
-  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
-  #     validate(need(input$mod_filt_bubb, "Select something in the model type filtering."))
-  #   }
-  #   
-  #   if(!("All" %in% input$mod_filt_bubb)){
-  #     # if(length(input$mod_filt_bubb) < 2 && input$rowdend == TRUE){
-  #     #   showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
-  #     #   validate(need(length(input$mod_filt_bubb) > 2, "Select at least two model types or disable row clustering."))
-  #     # }
-  #     CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_bubb)
-  #   }
-  #   
-  #   #control
-  #   filt_cnt = data() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
-  #     dplyr::filter(Experiment_id %in% unique(CBC150$Experiment_id)) %>%
-  #     tidyr::unite("Product", Product, Dose, sep = " ")
-  #   
-  #   #measure type
-  #   type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
-  #   
-  #   ###filtering option
-  #   if(input$dose_op_bubb == "filter"){
-  #     
-  # 
-  #     cbc_filtered = split(CBC150, f = ~Dose) %>% lapply(function(x) {
-  #       x = dplyr::bind_rows(x, filt_cnt)
-  #       x$Dose[is.na(x$Dose)] <-  unique(na.omit(x$Dose))
-  #       x
-  #       })
-  #     
-  #     
-  #     cbc_filtered = lapply(cbc_filtered, function(x){
-  #       if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
-  #         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-  #                                                          Duplicated will be averaged.")), type = "default")
-  #         x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-  #           dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
-  #       }else{x}
-  #     })
-  #     
-  #     cbc_filtered = data.table::rbindlist(cbc_filtered) %>% as.data.frame() 
-  #     if(input$filt_dose_bubb != "All"){
-  #       cbc_filtered = dplyr::filter(cbc_filtered, Dose %in% input$filt_dose_bubb)
-  #     }
-  #     
-  #     
-  #     #####mean option
-  #   }else if(input$dose_op_bubb == "mean"){
-  #     
-  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))))%>% 
-  #       dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup() %>% 
-  #       dplyr::bind_rows(filt_cnt)
-  #     
-  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
-  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-  #                                                   Duplicated will be averaged.")), type = "default")
-  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-  #         dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
-  #     }
-  #     
-  #     ##### subtract option
-  #   }else{
-  #     combination = strsplit(input$subdose_bubb, "-")
-  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
-  #       dplyr::summarise(across(c(type_meas, input$varsize_bubb), ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
-  #       dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
-  #     
-  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
-  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-  #                                                   Duplicated will be averaged.")), type = "default")
-  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-  #         dplyr::summarise(across(c(type_meas, input$varsize_bubb), mean, na.rm = T)) %>% dplyr::ungroup()
-  #     }
-  #     
-  #   }
-  #   
-  #   
-  #   ##column (product) filtering
-  #   if(is.null(input$column_filt_bubb)){
-  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
-  #     validate(need(input$column_filt_bubb, "Select something in the product (columns) filtering."))
-  #   }
-  #   
-  #   if(!("All" %in% input$column_filt_bubb)){
-  #     # if(input$column_filt_bubb == "CTRL" && input$columndend == TRUE){
-  #     #   showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
-  #     #   validate(need(input$column_filt_bubb == "CTRL", "Select at least two products (columns) or disable column clustering."))
-  #     # }
-  #     if(class(cbc_filtered)[1] == "list"){
-  #       lapply(cbc_filtered, function(x) x %>% dplyr::filter(Product_Family %in% input$column_filt_bubb))
-  #     }else{
-  #       dplyr::filter(cbc_filtered, Product_Family %in% input$column_filt_bubb)
-  #     }
-  #   }else{
-  #     cbc_filtered
-  #   }
-  #   
-  # })
-  # 
-  # 
-  # output$bubbleplot = renderPlotly({
-  #   req(data_bubble())
-  #   type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
-  #   
-  #   #levels_fct = unique(order_data(data_bubble())$Product)
-  #   temp = ggplot(order_data(data_bubble(),as_factor = TRUE), aes(x = Product, y = Model_type)) + #factor(Product, levels = levels_fct)
-  #     geom_point(aes(size = !!sym(input$varsize_bubb), color = !!sym(type_meas)), alpha = 0.75, shape = 16) + 
-  #     scale_size_continuous(range = c(1,10)) +
-  #     theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
-  #   
-  #   if(input$dose_op_bubb == "filter"){
-  #     temp = temp + facet_wrap(~Dose)
-  #   }
-  #   if(input$dose_op_bubb == "subtract"){
-  #     temp = temp + scale_color_gradient2(low = "green", mid = "white", high = "red", limits = c(-100,100))
-  #   }else{
-  #     temp = temp + scale_color_gradient(low = "white", high = "blue", limits = c(0,100))
-  #   }
-  #   
-  #   plotly::ggplotly(temp)
-  #   
-  # })
-  
-  
+ 
   
   
   ##### heatmap ####
@@ -649,15 +478,66 @@ app_server <- function( input, output, session ) {
     updateSelectInput(session, "prod_filt_heatmap", choices = unique(prod_total()$Product_Family))
   })
   
+  #purification filtering
   observeEvent(input$prod_filt_heatmap,{
-    filt = dplyr::filter(prod_total(), Product_Family == input$prod_filt_heatmap)
-    values_comb_heat$comb <- rev(unique(filt$Dose))
+    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+    updateSelectInput(session, "purif_filt_heat", choices = unique(doses$Purification), selected = unique(doses$Purification)[1])
   })
   
-  observeEvent(input$revdose_heat,{
+  
+  observeEvent(c(input$prod_filt_heatmap, input$purif_filt_heat),{
+    req(input$prod_filt_heatmap)
+    req(input$purif_filt_heat)
+    
+    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+      dplyr::filter(Purification %in% input$purif_filt_heat)
+    
+    #row filtering
+    updateSelectInput(session, "mod_filt_heatmap", choices = c("All", unique(doses$Model_type)), selected = "All")
+    
+    #column filtering
+    updateSelectInput(session, "column_filt_heatmap", choices = c("All", "CTRL", "CTRL+", input$prod_filt_heatmap), selected = "All")
+    
+    updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
+    updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
+    
+    if(length(unique(doses$Experiment_id)) > length(unique(doses$Model_type))){
+      updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
+    }else{
+      updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
+    }
+  })
+  
+  
+  
+  #### for doses
+  observeEvent(input$column_filt_bubb,{
+    if(input$column_filt_heatmap %in% input$prod_filt_heatmap || "All" %in% input$column_filt_heatmap){
+      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean", "subtract"))
+    }else{
+      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean"))
+    }
+  })
+  
+  
+  observe({
+    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+      dplyr::filter(Purification %in% input$purif_filt_heat)
+    
+    if(!("All" %in% input$mod_filt_heatmap)){
+      doses = dplyr::filter(doses, Model_type %in% input$mod_filt_heatmap)
+    }
+    
+    values_comb_heat$comb <- rev(sort(unique(doses$Dose)))
+    updateRadioButtons(session, "filt_dose_bubb", choices = c("All",sort(unique(doses$Dose))),inline = TRUE)
+    
+  })
+  
+  
+  observeEvent(input$revdose_bubb,{
     values_comb_heat$comb <- rev(values_comb_heat$comb)
   })
-
+  
   observeEvent(values_comb_heat$comb,{
     req(values_comb_heat$comb)
     if(!is.null(values_comb_heat$comb)){
@@ -666,37 +546,24 @@ app_server <- function( input, output, session ) {
     }
   })
   
-
   
 
-  observeEvent(input$prod_filt_heatmap,{
-    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-    updateSelectInput(session, "mod_filt_heatmap", choices = c("All", unique(prod_total()$Model_type)), selected = "All")
-    updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
-    updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
-    
-    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-    if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
-      updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
-    }else{
-      updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
-    }
-    
-    #column filtering
-    updateSelectInput(session, "column_filt_heatmap", choices = c("All", "CTRL", "CTRL+", input$prod_filt_heatmap), selected = "All")
-    
-  })
-  
-  
-  
-  observeEvent(input$column_filt_heatmap,{
-    if(input$column_filt_heatmap %in% input$prod_filt_heatmap || "All" %in% input$column_filt_heatmap){
-      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean", "subtract"))
-    }else{
-      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean"))
-    }
-  })
-  
+  # observeEvent(input$prod_filt_heatmap,{
+  #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+  #   updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
+  #   updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
+  #   
+  #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+  #   if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
+  #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
+  #   }else{
+  #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
+  #   }
+  #   
+  #   
+  # })
+
+
   
 
   # #slider for columns
@@ -719,7 +586,8 @@ app_server <- function( input, output, session ) {
   data_heatmap = reactive({
     req(prod_total())
     
-    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+      dplyr::filter(Purification %in% input$purif_filt_heat)
     
     ### model type filtering
     if(is.null(input$mod_filt_heatmap)){
@@ -893,8 +761,7 @@ app_server <- function( input, output, session ) {
         typeeval_heat = type_meas
       )
     }
-    
-    ComplexHeatmap::draw(ht_list, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(3, "cm"))
+    ComplexHeatmap::draw(ht_list, merge_legend = TRUE, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(3, "cm"))
   })
   
  
@@ -1232,7 +1099,7 @@ app_server <- function( input, output, session ) {
   
   data_D1 = reactive({
     req(data_notsumm_D1())
-    summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose"), method = "d1")
+    summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
   })
   
   #check data correctly loaded
@@ -1272,8 +1139,8 @@ app_server <- function( input, output, session ) {
     count = rbind(count,scanint)
     count$Measure = factor(count$Measure, levels = unique(count$Measure))
     count$Var = factor(count$Var, levels = unique(count$Var))
-    temp = ggplot(count, aes(x = Measure, y = Count)) + geom_col(aes(fill = Var)) + 
-      geom_text(aes(label=Count)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
+    temp = ggplot(count, aes(x = Measure, y = Count, group = Var)) + geom_col(aes(fill = Var)) + 
+      geom_text(aes(label=Count),position = position_stack(vjust = 0.5)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
       theme(axis.text.x = element_text(angle = 315, hjust = 0))
     
     plotly::ggplotly(temp)
@@ -1458,41 +1325,46 @@ app_server <- function( input, output, session ) {
   
   ##### heatmap D1 ####
   
-  observeEvent(data_notsumm_D1(),{
-    prod = data_notsumm_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) %>% 
-      dplyr::select(Product_Family) %>% unique()
-    updateSelectInput(session, "prodfam_heat_D1", choices = prod)
-  })
-  
-  
-  
-  
   
   prod_total_D1 = reactive({
-    req(data_D1())
-    data_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+    req(data_notsumm_D1())
+    data_notsumm_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
   })
+  
+  
+  observeEvent(prod_total_D1(),{
+    updateSelectInput(session, "prodfam_heat_D1", choices = unique(prod_total_D1()$Product_Family))
+  })
+
   
   # DATA STORAGE
   values_comb_heat_D1 <- reactiveValues(
     comb = NULL # original data
   )
-  
-  observeEvent(prod_total_D1(),{
-    updateSelectInput(session, "prodfam_heat_D1", choices = unique(prod_total_D1()$Product_Family))
-  })
-  
+
+
+
+  #purification filtering
   observeEvent(input$prodfam_heat_D1,{
-    filt = dplyr::filter(prod_total_D1(), Product_Family == input$prodfam_heat_D1)
+    doses = prod_total_D1() %>% dplyr::filter(Product_Family == input$prodfam_heat_D1)
+    updateSelectInput(session, "purif_filt_heat_D1", choices = unique(doses$Purification), selected = unique(doses$Purification)[1])
+  })
+
+
+
+  observeEvent(c(input$prodfam_heat_D1, input$purif_filt_heat_D1),{
+    req(input$prodfam_heat_D1)
+    req(input$purif_filt_heat_D1)
+    filt = dplyr::filter(prod_total_D1(), Product_Family == input$prodfam_heat_D1) %>%
+      dplyr::filter(Purification == input$purif_filt_heat_D1)
     values_comb_heat_D1$comb <- rev(unique(filt$Dose))
-    print(unique(filt$Dose))
     updateRadioButtons(session, "filt_dose_D1", choices = unique(filt$Dose),inline = TRUE) #c("All",
   })
-  
+
   observeEvent(input$revdose_heat_D1,{
     values_comb_heat_D1$comb <- rev(values_comb_heat_D1$comb)
   })
-  
+
   observeEvent(values_comb_heat_D1$comb,{
     req(values_comb_heat_D1$comb)
     if(!is.null(values_comb_heat_D1$comb)){
@@ -1500,147 +1372,149 @@ app_server <- function( input, output, session ) {
       updateSelectInput(session, "subdose_heatmap_D1", choices = combin)
     }
   })
-  
-  
- 
-  
+
+
+
+
 
   dataheat_D1 = reactive({
     req(data_notsumm_D1())
-    
+
     vitaorcyto = ifelse(input$typeeval_heat_D1 == "Vitality", "Cytotoxicity", "Vitality")
-    
-    
-    CBC150_D1 = data_notsumm_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) %>% 
-      dplyr::filter(Product_Family == input$prodfam_heat_D1)
-    
-    
+
+
+    CBC150_D1 = data_notsumm_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) %>%
+      dplyr::filter(Product_Family == input$prodfam_heat_D1) %>%
+      dplyr::filter(Purification == input$purif_filt_heat_D1)
+
+
     filt_cnt = data_notsumm_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
       dplyr::filter(Experiment_id %in% unique(CBC150_D1$Experiment_id)) %>%
       tidyr::unite("Product", Product, Dose, sep = " ")
-    
+
     #if filter
     if(input$dose_op_heatmap_D1 == "filter"){
-      
-      
-      cbc_filtered = split(CBC150_D1, f = ~Dose) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt) %>% 
-                                                               dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>% 
-                                                               dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% 
-                                                               dplyr::ungroup())
+
+
+      cbc_filtered = split(CBC150_D1, f = ~Dose) %>%
+        lapply( function(x) dplyr::bind_rows(x, filt_cnt) %>%
+                  dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>%
+                  dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>%
+                  dplyr::ungroup())
 
       cbc_filtered = lapply(cbc_filtered, function(x){
         if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
           showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
                                                                  Duplicated will be averaged.")), type = "default")
-          x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-            dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup() %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>% 
+          x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>%
+            dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup() %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>%
             dplyr::select(-dplyr::all_of(vitaorcyto))
-        }else{x %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>% 
+        }else{x %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>%
             dplyr::select(-dplyr::all_of(vitaorcyto))}
       })
-      
+
     }else if(input$dose_op_heatmap_D1 == "mean"){
       #if mean
-      cbc_filtered = CBC150_D1 %>% dplyr::bind_rows(filt_cnt) %>% 
-        dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>% 
+      cbc_filtered = CBC150_D1 %>% dplyr::bind_rows(filt_cnt) %>%
+        dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>%
         dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup()
-      
-      
+
+
       if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
                                                                  Duplicated will be averaged.")), type = "default")
-        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(Product)) %>% 
+        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(Product)) %>%
           dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
       }
-      
-      cbc_filtered = cbc_filtered %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>% 
+
+      cbc_filtered = cbc_filtered %>% dplyr::select(Product, where(is.numeric)) %>% tibble::column_to_rownames("Product") %>%
         dplyr::select(-dplyr::all_of(vitaorcyto))
-      
+
     }else{
       #if subtract
       combination = strsplit(input$subdose_heatmap_D1, "-")
-      
-      cbc_filtered = CBC150_D1 %>% dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate)), Dose) %>% 
-        dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% 
-        dplyr::ungroup() 
-      
-      
+
+      cbc_filtered = CBC150_D1 %>% dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate)), Dose) %>%
+        dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>%
+        dplyr::ungroup()
+
+
       if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
                                                     Duplicated will be averaged.")), type = "default")
-        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric))), Dose) %>% 
+        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric))), Dose) %>%
           dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
       }
-      
-      
-      cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
-        dplyr::summarise(across(where(is.double), ~ .x[Dose == as.numeric(combination[[1]][1])] - .x[Dose == as.numeric(combination[[1]][2])], na.rm = T)) %>% 
+
+
+      cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(where(is.numeric)))) %>%
+        dplyr::summarise(across(where(is.double), ~ .x[Dose == as.numeric(combination[[1]][1])] - .x[Dose == as.numeric(combination[[1]][2])], na.rm = T)) %>%
         dplyr::ungroup()
-      
-      filt_cnt_summ =  filt_cnt %>% dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>% 
-        dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% 
+
+      filt_cnt_summ =  filt_cnt %>% dplyr::group_by(across(-c(where(is.numeric), Well, Tec_Replicate))) %>%
+        dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>%
         dplyr::ungroup()
-      
+
       if(length(unique(filt_cnt_summ$Experiment_id)) > length(unique(filt_cnt_summ$Model_type))){
-        filt_cnt_summ = filt_cnt_summ %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+        filt_cnt_summ = filt_cnt_summ %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>%
           dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
       }
-      
-      cbc_filtered = cbc_filtered %>% dplyr::bind_rows(filt_cnt_summ) %>% dplyr::select(Product, where(is.numeric),-Dose) %>% tibble::column_to_rownames("Product") %>% 
+
+      cbc_filtered = cbc_filtered %>% dplyr::bind_rows(filt_cnt_summ) %>% dplyr::select(Product, where(is.numeric),-Dose) %>% tibble::column_to_rownames("Product") %>%
         dplyr::select(-dplyr::all_of(vitaorcyto))
-      
+
     }
 
     cbc_filtered
 
-    
+
   })
-  
-  
+
+
   heatmap_D1 = eventReactive(input$makeheatmap_D1,{
     req(dataheat_D1())
     cbc_filtered = dataheat_D1()
     if(input$dose_op_heatmap_D1 == "filter"){
-      
+
 
       doses = as.character(input$filt_dose_D1)
-      ht = make_heatmap_D1(data = cbc_filtered[[doses]], 
+      ht = make_heatmap_D1(data = cbc_filtered[[doses]],
                            type = input$dose_op_heatmap_D1,
                            row_dend = input$rowdend_D1,
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
                            add_values= input$show_valheat_D1)
-      
+
       ComplexHeatmap::draw(ht, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"),
         column_title  = paste(doses, "ug/ml"),column_title_gp = grid::gpar(fontsize = 18))
-      
+
     }else if(input$dose_op_heatmap == "mean"){
-      ht = make_heatmap_D1(data = cbc_filtered, 
+      ht = make_heatmap_D1(data = cbc_filtered,
                            type = input$dose_op_heatmap_D1,
                            row_dend = input$rowdend_D1,
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
                            add_values= input$show_valheat_D1)
-      
+
       ComplexHeatmap::draw(ht, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"))
     }else{
-      ht = make_heatmap_D1(data = cbc_filtered, 
+      ht = make_heatmap_D1(data = cbc_filtered,
                            type = input$dose_op_heatmap_D1,
                            row_dend = input$rowdend_D1,
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
                            add_values= input$show_valheat_D1)
-      ComplexHeatmap::draw(ht, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"))
+      ComplexHeatmap::draw(ht, merge_legend = TRUE, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"))
     }
   })
-  
-  
+
+
   observeEvent(heatmap_D1(),{
     InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heatmap_D1(), heatmap_id  = "heatmap_D1_output")
   })
-  
-  
+
+
 }
