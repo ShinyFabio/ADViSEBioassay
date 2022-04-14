@@ -77,8 +77,18 @@ app_server <- function( input, output, session ) {
   
   ##### cytotoxicity ######
   
+  cyto_data1 = reactiveVal(database_cyto)
+  
+  observe({
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
+    
+    if(file.exists(filepath) == TRUE){
+      cyto_data1(readRDS(filepath))
+    }
+  })
+  
   output$valbox_cyto = renderUI({
-    if(!exists("database_cyto")){
+    if(is.null(cyto_data1())){
       box(width = 12, background = "yellow",
           fluidPage(
             fluidRow(
@@ -91,7 +101,7 @@ app_server <- function( input, output, session ) {
           )
       )
     }else{
-      n_az = database_cyto$mydataset$Experiment_id %>% unique() %>% length()
+      n_az = cyto_data1()$mydataset$Experiment_id %>% unique() %>% length()
       box(width = 12, background = "green",
           fluidPage(
             fluidRow(
@@ -109,9 +119,9 @@ app_server <- function( input, output, session ) {
   
   #carica il file
   loaded_database_cyto1 = eventReactive(input$loaddatabase,{
-    if(exists("database_cyto")){
+    if(!is.null(cyto_data1())){
       showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loading...")), type = "message")
-      return(database_cyto)
+      return(cyto_data1())
     }else{
       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
       return(NULL)
@@ -163,9 +173,10 @@ app_server <- function( input, output, session ) {
     shinyWidgets::ask_confirmation(
       inputId = "confirmsave_cyto",
       type = "warning",
-      title = "Save and update database?",
-      text = "Do you want to save and update the internal database? Be sure that everything works before update.
-      If you need to restore the original database, you have to download again ADViSEBioassay."
+      title = "Do you want to save and update the internal database?",
+      text = h4("Be sure that everything works before update.
+      If you need to restore the original database, remove the file", strong("database_updated_cyto.rds"), " from this path: ",
+      paste0(base::system.file(package = "ADViSEBioassay"),"/data/"))
     )
   })
 
@@ -175,9 +186,9 @@ app_server <- function( input, output, session ) {
     },shiny.silent.error = function(e) {TRUE})
     
     if(input$confirmsave_cyto == TRUE && checkdatabase == FALSE){
-      filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_cyto.rda")
+      filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
       database_cyto = loaded_database_cyto()
-      save(database_cyto, file = filepath)
+      saveRDS(database_cyto, file = filepath)
     }
   })
   
