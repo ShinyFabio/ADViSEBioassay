@@ -111,7 +111,7 @@ app_server <- function( input, output, session ) {
   loaded_database_cyto1 = eventReactive(input$loaddatabase,{
     if(exists("database_cyto")){
       showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loading...")), type = "message")
-      return("database_cyto")
+      return(database_cyto)
     }else{
       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
       return(NULL)
