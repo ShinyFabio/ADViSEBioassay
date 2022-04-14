@@ -9,7 +9,7 @@
 #' @importFrom tibble as_tibble column_to_rownames
 #' @importFrom data.table rbindlist
 #' @importFrom DT renderDT
-#' @importFrom shinyWidgets show_alert
+#' @importFrom shinyWidgets show_alert ask_confirmation
 #' @importFrom readxl read_xlsx
 #' @importFrom openxlsx write.xlsx
 #' @importFrom tools file_ext
@@ -28,8 +28,7 @@ app_server <- function( input, output, session ) {
   
   options(scipen = 999)
   
-  bs4Dash::useAutoColor()
-  
+
   observeEvent(input$jumptohome, {
     shinydashboard::updateTabItems(session, "sidebarmenu", "home")
   })
@@ -75,209 +74,130 @@ app_server <- function( input, output, session ) {
   })
   
   
-  ##### EXP list #####
-  exp_list_to_edit = reactive({
-    req(input$exp_list_file)
-    ext <- tools::file_ext(input$exp_list_file$name)
-    if(ext != "xlsx"){
-      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
-    }
-    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
-    showNotification(tagList(icon("check"), HTML("&nbsp;Experiment list file loaded.")), type = "message")
-    readxl::read_xlsx(input$exp_list_file$datapath) %>% janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
-  })
   
-
-  exp_list = mod_edit_data_server("edit_exp_list", data_input = exp_list_to_edit, maxrows = 200)
+  ##### cytotoxicity ######
   
-  
-  ####select the data folder where to read data
-  
-  # this makes the directory at the base of your computer.
-  volumes = c(Home = fs::path_home(), shinyFiles::getVolumes()())
-  
-  shinyFiles::shinyDirChoose(input, 'datafolder_cyto', roots = volumes, session = session)
-  
-  data_path = reactive({
-    if(length(input$datafolder_cyto) != 1 ) {
-      shinyFiles::parseDirPath(volumes,input$datafolder_cyto)
+  output$valbox_cyto = renderUI({
+    if(!exists("database_cyto")){
+      box(width = 12, background = "yellow",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("Cytotoxicity data: "),style = "color: white"),
+                     h5("No Cytotoxicity data present in database!", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-exclamation-triangle", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
     }else{
-      NULL
+      n_az = database_cyto$mydataset$Experiment_id %>% unique() %>% length()
+      box(width = 12, background = "green",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("Cytotoxicity data: "),style = "color: white"),
+                     h5(strong(n_az), " experiments.", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-check", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
     }
   })
   
   
-  
-  #check data correctly loaded
-  output$check_explist = reactive(
-    return(is.null(exp_list()))
-  )
-  outputOptions(output, "check_explist", suspendWhenHidden = FALSE)
-  
-  
-  #### Target file ####
-  
-  target_to_edit = reactive({
-    req(input$target_file, exp_list())
-    ext <- tools::file_ext(input$target_file$name)
-    if(ext != "xlsx"){
-      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
-    }
-    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
-    Target_file = readxl::read_xlsx(input$target_file$datapath, na = "NA") %>% janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
-    
-    #filter target based on exp_list
-    Target_file = Target_file %>% dplyr::filter(Experiment_id %in% exp_list()$Experiment_id)
-    
-    to_rem = NULL
-    for(i in unique(Target_file$Experiment_id)){
-      expid = Target_file %>% dplyr::filter(Experiment_id == i)
-      
-      
-      if("Support_type" %in% colnames(expid)){
-        #check id with support type
-        num_supp = unique(expid$Support_type)
-        if(length(num_supp) > 1){
-          print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
-          showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                                 HTML("There are more than one Support type (",num_supp, ") for the", i, "and will be removed. Check the target file.")), type = "warning")
-          to_rem = c(to_rem, i)
-        }
-      }
-
-      
-      #check well numbers in the plate
-      if(length(expid$Well) != 96){
-        print(paste0("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file."))
-        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                               HTML("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file.")), type = "warning")
-        to_rem = c(to_rem, i)
-      }
-      #check well replicates
-      if(length(unique(expid$Well)) != length(expid$Well)){
-        dup_wells = expid[duplicated(expid$Well),]$Well
-        print(paste0("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file."))
-        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                               HTML("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file.")), type = "warning")
-        to_rem = c(to_rem, i)
-      }
-    }
-    
-    if(is.null(to_rem)){
-      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded.")), type = "message")
-      Target_file
+  #carica il file
+  loaded_database_cyto1 = eventReactive(input$loaddatabase,{
+    if(exists("database_cyto")){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loading...")), type = "message")
+      return(database_cyto)
     }else{
-      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded. Some experiments are removed.")), type = "message")
-      Target_file %>% dplyr::filter(!(Experiment_id %in% unique(to_rem)))
-    }
-    
-  })
-  
-  
-  target = mod_edit_data_server("edit_target", data_input = target_to_edit, maxrows = 150)
-  
-  #check data correctly loaded
-  output$check_target = reactive(
-    return(is.null(target()))
-  )
-  outputOptions(output, "check_target", suspendWhenHidden = FALSE)
-  
-  
-  
-  #### eval cytotox ####
-  data_notsumm = eventReactive(input$gocyto,{
-    req(target(), exp_list())
-    
-    check_files = paste0(exp_list()$Path, exp_list()$File)
-
-    file_list <- unlist(strsplit(exp_list()$File, split = ","))
-    
-
-    showNotification(tagList(icon("info"), HTML("&nbsp;Number of files to be imported: ", length(file_list))), type = "default")
-    message(paste0("Number of files to be imported: ", length(file_list)))
-    
-    message(paste0("Name of files to be imported: ", "\n"))
-    for (k in 1:length(file_list)){
-      message(paste0(file_list[k]))
-    }
-    
-    if (!all(file_list %in% list.files(unique(exp_list()$Path)))){
-      file_wrong = file_list[!file_list %in% list.files(unique(exp_list()$Path))]
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
-      message("At least one file is missing or reported with the wrong name! Check",file_wrong)
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
       return(NULL)
-    } else {
-    
-      #check wavelength
-      expid_for_test = dplyr::filter(exp_list(), Instrument == "EZ_READ_2000" & Scan == "Double")$Experiment_id
-      temp = list()
-      temp = lapply(expid_for_test, function(x){
-        exp_list = dplyr::filter(exp_list(), Experiment_id == x)
-        if(exp_list$Scan == "Double" && exp_list$Instrument == "EZ_READ_2000"){
-          mydata <- as.data.frame(readxl::read_excel(paste0(exp_list$Path,exp_list$File), sheet = "Results")) %>%
-            dplyr::select(where(is.double))
-          wave = stringr::str_split(exp_list$Wavelength, ",", simplify = T)
-          if(!all(wave %in% colnames(mydata))){
-            return(exp_list$File)
-          }
-        }
-      })
-      where = Filter(Negate(is.null), temp) %>% unlist()
-      if(!is.null(where)){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
-        return(NULL)
-      }
-      
-      
-      processed.experiment = list()
-      expid = exp_list()$Experiment_id
-      
-      percentage <- 0
-
-      withProgress(message = "Reading data...", value=0, {
-        processed.experiment = lapply(expid, function(x){
-          exp_list = dplyr::filter(exp_list(), Experiment_id == x)
-          percentage <<- percentage + 1/length(expid)*100
-          incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
-          print(paste("Loading experiment",x,sep =" "))  
-          file_explist = dplyr::filter(exp_list, Experiment_id == x)
-          read_cytoxicity(ifile = file_explist$File, 
-                          path = file_explist$Path,
-                          instrument = file_explist$Instrument,
-                          scan = file_explist$Scan, 
-                          sample.anno=dplyr::filter(target(), Experiment_id == x),
-                          wave = file_explist$Wavelength) %>%
-            eval_cytoxicity()
-          
-        })
-      })
-
-      names(processed.experiment) = expid
-      myprocesseddata = tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
-      
-      col_to_check = c("Model_type","Model_Family", "Product_Family")
-      
-      err = 0
-      for(i in col_to_check){
-        if(TRUE %in% is.na(myprocesseddata[,i])){
-          message(paste0("There are some NA values inside",i,". Check the target file"))
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;There are some NA values inside",i,". Check the target file")), type = "error")
-          err = err+1
-        }
-      }
-      if(err == 0){
-        showNotification(tagList(icon("check"), HTML("&nbsp;Analysis completed!")), type = "message")
-        return(myprocesseddata)
-      }else{return(NULL)}
-
+    }
+  })
+  
+  observeEvent(loaded_database_cyto1(),{
+    if(!is.null(loaded_database_cyto1())){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loaded!")), type = "message")
     }
   })
   
   
-  data = reactive({
-    req(data_notsumm())
-    summarise_cytoxicity(data_notsumm(), group = c("Experiment_id","Model_type", "Model_Family", "Product","Product_Family", "Dose", "Purification"))
+  #### update data if present
+  cyto_from_mod = mod_load_cyto_server("load_cyto_mod")
+  
+  
+  #check data correctly loaded
+  output$check_data_updated = reactive(
+    return(is.null(cyto_from_mod()))
+  )
+  outputOptions(output, "check_data_updated", suspendWhenHidden = FALSE)
+  
+  
+  output$newdata_cyto_DT = renderDT({
+    req(cyto_from_mod())
+    if(input$summ_viewtable_updated == TRUE){
+      cyto_from_mod()$mydataset
+    }else{
+      cyto_from_mod()$myprocesseddata
+    }
+  },options = list(scrollX = TRUE))
+  
+  loaded_database_cyto = reactiveVal()
+  
+  observeEvent(loaded_database_cyto1(),{
+    loaded_database_cyto(loaded_database_cyto1())
   })
+
+  observeEvent(input$update_cyto_bttn,{
+    if(!is.null(cyto_from_mod())){
+      loaded_database_cyto(update_database(old_data = loaded_database_cyto1(), new_data = cyto_from_mod()))
+    }
+  })
+  
+  
+
+  observeEvent(input$save_update,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmsave_cyto",
+      type = "warning",
+      title = "Save and update database?",
+      text = "Do you want to save and update the internal database? Be sure that everything works before update.
+      If you need to restore the original database, you have to download again ADViSEBioassay."
+    )
+  })
+
+  observeEvent(input$confirmsave_cyto,{
+    checkdatabase = tryCatch({loaded_database_cyto()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    if(input$confirmsave_cyto == TRUE && checkdatabase == FALSE){
+      filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_cyto.rda")
+      database_cyto = loaded_database_cyto()
+      save(database_cyto, file = filepath)
+    }
+  })
+  
+
+  data = reactive({
+    req(loaded_database_cyto())
+    loaded_database_cyto()$mydataset
+  })
+  
+  data_notsumm = reactive({
+    req(loaded_database_cyto())
+    loaded_database_cyto()$myprocesseddata
+  })
+  
+  exp_list = reactive({
+    req(loaded_database_cyto())
+    loaded_database_cyto()$exp_list
+  })
+  
+
   
   #check data correctly loaded
   output$check_data = reactive(
@@ -293,7 +213,33 @@ app_server <- function( input, output, session ) {
     }else{
       data_notsumm()
     }
-  })
+  },options = list(scrollX = TRUE))
+  
+  
+ #### cytotoxicity mod ####
+  
+
+  
+  
+  # data = reactive({
+  #   req(cyto_from_mod(), data2())
+  #   cyto_from_mod()$data
+  # })
+  # 
+  # data_notsumm = reactive({
+  #   req(cyto_from_mod())
+  #   cyto_from_mod()$data_notsumm
+  # })
+  # 
+  # exp_list = reactive({
+  #   req(cyto_from_mod())
+  #   cyto_from_mod()$exp_list
+  # })
+  # 
+  
+
+  
+  
   
   ##### informative plots #####
   
@@ -339,8 +285,8 @@ app_server <- function( input, output, session ) {
 
   output$prodfam_barplot = plotly::renderPlotly({
     req(data())
-    
-    prod_table =  as.data.frame(table(data()$Product_Family))
+    data_filt = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+    prod_table =  as.data.frame(table(data_filt$Product_Family))
     colnames(prod_table)[1] = "Product_Family"
     
     prod_table = prod_table[order(-prod_table$Freq),]
@@ -374,44 +320,100 @@ app_server <- function( input, output, session ) {
   
   ####pie plot 
   
-  # for maintaining the current category (i.e. selection)
-  current_category <- reactiveVal()
-
   
+  # These reactive values keep track of the drilldown state
+  # (NULL means inactive)
+  drills <- reactiveValues(category = NULL,
+                           sub_category = NULL)
+  
+  # report sales by category, unless a category is chosen
   filtdata_pie <- reactive({
-    req(data())
-    if (is.null(current_category())) {
+    if (is.null(drills$category)) {
       return(dplyr::count(data(), Model_Family))
     }
-    data() %>%
-      dplyr::filter(Model_Family %in% current_category()) %>%
+    temp = data() %>%
+      dplyr::filter(Model_Family %in% drills$category) %>%
       dplyr::count(Model_type)
+    
+    if (is.null(drills$sub_category)) {
+      return(temp)
+    }
+    
+    data() %>%
+      dplyr::filter(Model_Family %in% drills$category) %>%
+      dplyr::filter(Model_type %in% drills$sub_category) %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) %>% 
+      dplyr::count(Product_Family)
+    
   })
   
   # Note that pie charts don't currently attach the label/value 
   # with the click data, but we can include as `customdata`
   output$piemodfamilyplot <- renderPlotly({
-
+    req(filtdata_pie())
     d <- setNames(filtdata_pie(), c("labels", "values"))
-    plotly::plot_ly(d) %>%
-      plotly::add_pie(labels = ~labels, values = ~values, customdata = ~labels, textinfo = 'label+value') %>%
-      plotly::layout(title = if(is.null(current_category())){"Model_Family distribution"}else{ paste("Distribution for", current_category())})
+    if(is.null(drills$sub_category)){
+      plotly::plot_ly(d, source = "drillpie") %>%
+        plotly::add_pie(labels = ~labels, values = ~values, customdata = ~labels, textinfo = 'label+value') %>%
+        plotly::layout(title = if(is.null(drills$category)){"Model_Family distribution"}else{ paste("Distribution for", drills$category)})
+    }else{
+      
+      d = d[order(-d$values),]
+      d$labels = factor(d$labels, levels = rev(d$labels))
+      
+      plot = ggplot(d) + geom_col(aes(y = labels, x = values,fill = labels))+ 
+        xlab("Number of samples")+ ylab("Product Family") + ggtitle(paste0("Sample for each Product Family in ",drills$sub_category)) + 
+        theme(axis.text.y = element_text(size = 7.4))
+      
+      size_plot = round(84 + (640*length(d$labels))/(50 + length(d$labels)/10)) #640 found with html inspect when 50 prod are shown.
+      plotly::ggplotly(plot, source = "drillpie")
+    }
+    
+  })
+  
+  output$piemodfamilyplotUI = renderUI({
+    req(filtdata_pie())
+    d <- setNames(filtdata_pie(), c("labels", "values"))
+    size_plot = round(84 + (640*length(d$labels))/(50 + length(d$labels)/10)) #640 found with html inspect when 50 prod are shown.
+    if(is.null(drills$sub_category)){
+      plotly::plotlyOutput("piemodfamilyplot")
+    }else{
+      plotly::plotlyOutput("piemodfamilyplot", height = paste0(size_plot,"px"))
+    }
+    
   })
   
 
   # update the current category when appropriate
-  observe({
-    cd <- plotly::event_data("plotly_click")$customdata[[1]]
-    if (isTRUE(cd %in% unique(data()$Model_Family))) current_category(cd)
+  observeEvent(plotly::event_data("plotly_click", source = "drillpie"),{
+    req(plotly::event_data("plotly_click", source = "drillpie"))
+    cd <- plotly::event_data("plotly_click", source = "drillpie")$customdata[[1]]
+    
+    if (isTRUE(cd %in% unique(data()$Model_Family))){
+      drills$category <- cd
+    }
+    
+    if (isTRUE(cd %in% unique(data()$Model_type))){
+      drills$sub_category <- cd
+    }
   })
   
   output$back <- renderUI({
-    if (!is.null(current_category())) 
+    if (!is.null(drills$category) && is.null(drills$sub_category)) {
       actionButton("clear", "Back", icon("chevron-left"))
+    }
   })
   
-  # clear the chosen category on back button press
-  observeEvent(input$clear, current_category(NULL))
+  output$back1 <- renderUI({
+    if (!is.null(drills$sub_category)) {
+      actionButton("clear1", "Back", icon("chevron-left"))
+    }
+  })
+  
+  observeEvent(input$clear,
+               drills$category <- NULL)
+  observeEvent(input$clear1,
+               drills$sub_category <- NULL)
+  
 
  
   ## heatmap product family vs model type
@@ -937,6 +939,36 @@ app_server <- function( input, output, session ) {
 
   
 ######## D1 ########
+  
+  
+  output$valbox_D1 = renderUI({
+    if(exists("database_D1") == FALSE){
+      box(width = 12, background = "yellow",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("D1 data: "),style = "color: white"),
+                     h5("No D1 data present in database!", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-exclamation-triangle", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
+    }else{
+      n_az = database_D1$mydataset$Experiment_id %>% unique() %>% length()
+      box(width = 12, background = "green",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("D1 data: "),style = "color: white"),
+                     h5(strong(n_az), " experiments.", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-check", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
+    }
+  })
   
   
   ##### EXP list #####

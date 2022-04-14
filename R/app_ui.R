@@ -5,7 +5,7 @@
 #' @rawNamespace import(shiny, except = c(actionButton, column, insertTab, tabsetPanel))
 #' @importFrom DT DTOutput
 #' @import shinyWidgets
-#' @import bs4Dash
+#' @import shinydashboard
 #' @importFrom fresh use_theme
 #' @importFrom InteractiveComplexHeatmap InteractiveComplexHeatmapOutput
 #' @importFrom plotly plotlyOutput
@@ -21,102 +21,158 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     
     tags$link(rel = "stylesheet", type="text/css", href="www/custom_notifications.css"),
-    tags$link(rel = "stylesheet", type="text/css", href="www/custom_sidebarpanels.css"),
+    #tags$link(rel = "stylesheet", type="text/css", href="www/custom_sidebarpanels.css"),
+    tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "www/custom_dashboardheader_title.css")),
 
-    bs4Dash::dashboardPage(
-      title = "ADViSEBioassay",
+    dashboardPage(
+      #title = "ADViSEBioassay",
  
-      header = bs4DashNavbar(
-        skin = "light", status = "primary",
-        title = dashboardBrand("ADViSEBioassay", color = "primary", 
-                               href = "https://github.com/ShinyFabio/ADViSEBioassay", image = "www/logo_ADViSEBioassay.png"),
-        
-        rightUi = tags$li(class = "dropdown", actionButton(inputId  = "jumptohome", label =NULL, icon = icon("home"),status = "primary")) #
-      ),
+      # header = bs4DashNavbar(
+      #   skin = "light", status = "primary",
+      #   title = dashboardBrand("ADViSEBioassay", color = "primary", 
+      #                          href = "https://github.com/ShinyFabio/ADViSEBioassay", image = "www/logo_ADViSEBioassay.png"),
+      #   
+      #   rightUi = tags$li(class = "dropdown", actionButton(inputId  = "jumptohome", label =NULL, icon = icon("home"),status = "primary")) #
+      # ),
+      
+      dashboardHeader(title = span(
+        tagList(tags$img(src = "www/logo_ADViSEBioassay.png", width = "32px",style="margin-right: 4px;"), "ADViSEBioassay")),
+        tags$li(class = "dropdown", actionBttn("jumptohome", icon = icon("home"), style = "stretch", size = "lg"))),
+      
 
-      sidebar = bs4Dash::dashboardSidebar(
-        skin = "light", 
-        inputId = "sidebarState",
+      sidebar = dashboardSidebar(
+        #skin = "light", 
+        #inputId = "sidebarState",
         
+        sidebarUserPanel(name = textOutput("nome"),
+                         subtitle = actionButton('change','Change', style='padding:0px; height:18px; font-size:90%'),
+                         image = "www/userimage.png"
+        ),
+        # tags$div(
+        #   class = "user-panel mt-3 pb-3 mb-3",
+        #   fluidRow(
+        #     column(3, tags$img(src = "www/userimage.png",style = "width:45px;", class = "img-circle elevation-2")),
+        #     column(8, 
+        #            fluidRow(textOutput("nome"), style = "color:white;"),
+        #            fluidRow(actionButton('change','Change', 
+        #                         style='padding:0px; height:18px; font-size:90%;background-color: #2c2f76;border-color: #2c2f76;color: white;'))
+        #   ))),
         
-        tags$div(
-          class = "user-panel mt-3 pb-3 mb-3",
-          fluidRow(
-            column(3, tags$img(src = "www/userimage.png",style = "width:45px;", class = "img-circle elevation-2")),
-            column(8, 
-                   fluidRow(textOutput("nome"), style = "color:white;"),
-                   fluidRow(actionButton('change','Change', 
-                                style='padding:0px; height:18px; font-size:90%;background-color: #2c2f76;border-color: #2c2f76;color: white;'))
-          ))),
-        
-        bs4Dash::sidebarMenu(
+        sidebarMenu(
           id = "sidebarmenu",
-          bs4Dash::menuItem("Home", tabName = "home", icon = icon("home")),
-          bs4Dash::menuItem("D1", tabName = "d1tab", icon = icon("table")),
-          bs4Dash::menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("file-import"))
+          menuItem("Home", tabName = "home", icon = icon("home")),
+          menuItem("D1", tabName = "d1tab", icon = icon("table")),
+          menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("file-import"))
         )
       ),
       
-      controlbar = dashboardControlbar(),  #il controlbar a destra
-      footer = dashboardFooter(), ##aggiunge una barra sotto a tutto dove posso scrivere qualcosa
+      #controlbar = dashboardControlbar(),  #il controlbar a destra
+      #footer = dashboardFooter(), ##aggiunge una barra sotto a tutto dove posso scrivere qualcosa
 
-      body = bs4Dash::dashboardBody(
-        fresh::use_theme(theme_ADViSE_fresh),
-
+      body = dashboardBody(
+        #fresh::use_theme(theme_ADViSE_fresh),
+        theme_ADViSE,
+        
         #####menu home ####
         tabItems(
           tabItem(
             tabName = "home",
-            h1(strong("Welcome to ADViSEBioassay!")),
             fluidRow(
-              column(6,tags$img(src = "www/advise_logo.png", width = "600px")),
-              column(4, tags$img(src = "www/logo_ADViSEBioassay.png", width = "250px"))),
-            #fluidRow(column(8,offset = 1,tags$img(src = "www/NewLogoAL.png", width = "200px")))),
+              shinydashboard::box(width = 12, status = "primary",
+                                  column(3, br(), tags$img(src = "www/advise_logo.png", width = "400px")),
+                                  column(7,br(), br(), br(), 
+                                         HTML("<h1 style = 'text-align: center;font-size: 53px;color: #0e3d51;'>
+                     <strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Welcome to ADViSEBioassay!</strong>
+                     </h1>")),
+                     column(2, tags$img(src = "www/logo_ADViSEBioassay.png", width = "140px"), style = "text-align: right"))
+              ),
+            br(),
+            fluidRow(column(12,wellPanel(
+              h3(strong("ADViSEBioassay")," is a Shiny app for..........",style = "color: #0e3d51;")
+            ))),
+            br(),
+            fluidRow(
+              
+              
+              box(width = 3, status = "primary", title = h3(strong("Database"), style = "color: white; display:inline; margin-top: 0px;margin-bottom: 0px;"), solidHeader = T,
+                  uiOutput("valbox_cyto"),
+                  uiOutput("valbox_D1"),
+                  div(actionButton("loaddatabase", label = HTML("&nbsp;Load database!"), icon("rocket"), class = "btn btn-primary btn-lg", style='padding:10px; font-size:140%; font-weight: bold;'),style = "text-align: center;")
+                  #hr(),
+                  
+                  #actionButton("upaziendedata", HTML("&nbsp;Update database"), icon("file-upload"),  style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;'),
+                  #actionButton("download_cyto", "Download database", icon("download"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')
+              )
+              
+              
+              
+            )
+
           ),
           
           
           #### menu cytotab ####
           tabItem(
             tabName = "cytotab",
-            bs4TabCard(id = "tabsetcyto", width = 12, status = "primary",
+            #tabBox(id = "tabsetcyto", width = 12, status = "primary",
+            tabsetPanel(id = "tabsetcyto",
+
               tabPanel(
                 "Data",
-                sidebarLayout(
-                  sidebarPanel(
-                    width = 3,
-                    fluidRow(
-                      column(10, fileInput("exp_list_file","Select the Experiment list file (.xlsx)")),
-                      column(
-                        2, style="padding-left: 9px; padding-top: 4px;",br(),
-                        mod_edit_data_ui("edit_exp_list"))
-                    ),
-                    conditionalPanel(
-                      condition = "output.check_explist == false",
-                      fluidRow(
-                        column(10, fileInput("target_file","Select the Target file (.xlsx)")),
-                        column(
-                          2, br(), style="padding-left: 9px; padding-top: 4px;",
-                          mod_edit_data_ui("edit_target"))
-                      )
-                    ),
+                box(width = 12, status = "primary",
+                    fluidRow(column(
+                      width = 1, style="width: 7rem;",
+                      dropdownButton(
+                        conditionalPanel(condition = "output.check_data == false",
+                                         h5(strong("Summarized data")),
+                                         materialSwitch("summ_viewtable", value = TRUE, status = "primary")
+                        ),
+                        circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                        tooltip = tooltipOptions(title = "Click to see options"))
+                    )),
                     
-                    shinyFiles::shinyDirButton("datafolder_cyto", label = "Browse...",
-                                               title = "Please select the data folder", multiple = FALSE, icon = icon("folder-open")),
-                    conditionalPanel(
-                      condition = "output.check_target == false",
-                      div(actionButton("gocyto", "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
+                    shinycssloaders::withSpinner(DT::DTOutput("dtdata"))),
+                fluidRow(
+                  column(
+                    2, style = "text-align:center;",
+                    actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
                     ),
-                    conditionalPanel(
-                      condition = "output.check_data == false",
-                      hr(),
-                      materialSwitch("summ_viewtable", label = "Summarize data", value = TRUE, status = "primary")
+                  column(
+                    2,
+                    actionButton("save_update", HTML("&nbsp;Update database"), icon("save"), style='padding:10px; font-size:140%; font-weight: bold;')
                     )
+                ),
                     
-                    
-                  ),
-                  mainPanel(
-                    width = 9,
-                    div(DT::DTOutput("dtdata"), style = "overflow-x: scroll;")
+                tags$head(tags$style("#upcyto_tab .modal-dialog{ min-width:170rem}")),
+                tags$head(tags$style("#upcyto_tab .modal-body{ min-height:80rem}")),
+                shinyBS::bsModal(
+                  "upcyto_tab", "Update database", trigger = "upcyto_modalbutton", size = "large",
+                  sidebarLayout(
+                    sidebarPanel(width = 3,
+                                 mod_load_cyto_ui("load_cyto_mod"),
+                                 hr(),
+                                 conditionalPanel(
+                                   condition = "output.check_data_updated == false",
+                                   div(actionButton("update_cyto_bttn", "Merge!",icon("edit"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
+                                 
+                    ),
+                    mainPanel(
+                      width = 9,
+                      box(width = NULL, status = "primary",
+                          fluidRow(
+                            column(width = 1, style="width: 7rem;",
+                                   dropdownButton(
+                                     conditionalPanel(condition = "output.check_data_updated == false",
+                                                      h5(strong("Summarized data")),
+                                                      materialSwitch("summ_viewtable_updated", value = TRUE, status = "primary")
+                                     ),
+                                     circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                                     tooltip = tooltipOptions(title = "Click to see options"))
+                            )),
+                          
+                          shinycssloaders::withSpinner(DTOutput("newdata_cyto_DT")))
+                      
+                    )
                   )
                 )
                 
@@ -151,7 +207,9 @@ app_ui <- function(request) {
                     ),
                     conditionalPanel(
                       condition = "input.seltype_infograph == 'Model family'",
-                      shinycssloaders::withSpinner(plotly::plotlyOutput("piemodfamilyplot")), uiOutput("back")
+                      shinycssloaders::withSpinner(uiOutput("piemodfamilyplotUI")),
+                      uiOutput("back"),
+                      uiOutput("back1")
                     ),
                     conditionalPanel(
                       condition = "input.seltype_infograph == 'Product family'",
@@ -349,8 +407,8 @@ app_ui <- function(request) {
           ####### D1 #######
           tabItem(
             tabName = "d1tab",
-            bs4TabCard(
-              id = "tabsetd1", width = 12, status = "primary",
+            #tabBox(id = "tabsetd1", width = 12, status = "primary",
+            tabsetPanel(id = "tabsetd1",
               tabPanel(
                 "Data",
                 sidebarLayout(

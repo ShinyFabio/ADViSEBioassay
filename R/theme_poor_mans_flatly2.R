@@ -107,5 +107,6 @@ theme_ADViSE <- dashboardthemes::shinyDashboardThemeDIY(
   ,tableBorderColor = "rgb(236,240,241)"
   ,tableBorderTopSize = 1
   ,tableBorderRowSize = 1
+
   
 )
