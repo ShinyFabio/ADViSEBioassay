@@ -177,7 +177,8 @@ app_server <- function( input, output, session ) {
     if(input$confirmsave_cyto == TRUE && checkdatabase == FALSE){
       filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_cyto.rda")
       database_cyto = loaded_database_cyto()
-      save(database_cyto, file = filepath)
+      usethis::use_data(database_cyto, overwrite = TRUE)
+      #save(database_cyto, file = filepath)
     }
   })
   
