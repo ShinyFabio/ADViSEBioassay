@@ -109,9 +109,10 @@ app_server <- function( input, output, session ) {
   
   #carica il file
   loaded_database_cyto1 = eventReactive(input$loaddatabase,{
-    if(exists("database_cyto")){
+    
+    if(exists(data(database_cyto, envir=environment()))){
       showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loading...")), type = "message")
-      return(database_cyto)
+      return(data(database_cyto, envir=environment()))
     }else{
       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
       return(NULL)
