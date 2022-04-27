@@ -133,16 +133,42 @@ app_ui <- function(request) {
                     
                     shinycssloaders::withSpinner(DT::DTOutput("dtdata"))),
                 fluidRow(
+                  
+                  # column(
+                  #   2, style = "text-align:center;",
+                  #   actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;'),
+                  #   strong(h3("or", style = "margin-top: 10px;")),
+                  #   actionButton("upload_updated_cyto", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                  # ),
+                  
+                  
+                  column(
+                    1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
+                    actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                    ),
+                  column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
+                  column(
+                    1, style = "padding-right: 30rem; padding-left: 2rem;",
+                    actionButton("upload_updated_cyto", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                  ),
                   column(
                     2, style = "text-align:center;",
-                    actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("save_update", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
                     ),
+                  conditionalPanel(
+                    condition = "output.checkupdated_cyto_fordownload == true",
+                    column(
+                      3, style = "text-align:center;",
+                      downloadButton("download_updated_cyto", "Download database", style='padding:10px; font-size:140%; font-weight: bold;')
+                      )
+                  ),
                   column(
-                    2,
-                    actionButton("save_update", HTML("&nbsp;Update database"), icon("save"), style='padding:10px; font-size:140%; font-weight: bold;')
-                    )
+                    2, style = "text-align:center;",
+                    actionButton("remove_update_cyto", HTML("&nbsp;Restore database"),icon("undo"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
+                  )
+                  
                 ),
-                    
+
                 tags$head(tags$style("#upcyto_tab .modal-dialog{ min-width:170rem}")),
                 tags$head(tags$style("#upcyto_tab .modal-body{ min-height:80rem}")),
                 shinyBS::bsModal(
@@ -233,8 +259,10 @@ app_ui <- function(request) {
                   sidebarPanel(
                     width = 3,
                     selectInput("typeeval_bar", "Select a measure", choices = c("Cytotoxicity", "Vitality")),
-                    selectInput("model_filt_bar", "Filter Model type", choices = ""),
-                    selectInput("family_filt_bar", "Filter Product Family", choices = ""),
+                    fluidRow(
+                      column(6, selectInput("model_filt_bar", "Filter Model type", choices = "")),
+                      column(6, selectInput("family_filt_bar", "Filter Product Family", choices = ""))),
+                    selectInput("purif_filt_bar", "Select a purification", choices = ""),
                     fluidRow(
                       column(6, awesomeCheckbox("addpoints_barplot", "Add points", value = TRUE)),
                       column(6, conditionalPanel(condition = "output.check_multID_bar1 == true",
@@ -245,8 +273,10 @@ app_ui <- function(request) {
                       condition = "output.show_barplot2 == true",
                       br(),
                       selectInput("typeeval_bar2", "Select a measure", choices = c("Cytotoxicity", "Vitality")),
-                      selectInput("model_filt_bar2", "Filter Model type", choices = ""),
-                      selectInput("family_filt_bar2", "Filter Product Family", choices = ""),
+                      fluidRow(
+                        column(6, selectInput("model_filt_bar2", "Filter Model type", choices = "")),
+                        column(6,selectInput("family_filt_bar2", "Filter Product Family", choices = ""))),
+                      selectInput("purif_filt_bar2", "Select a purification", choices = ""),
                       fluidRow(
                         column(6, awesomeCheckbox("addpoints_barplot2", "Add points", value = TRUE)),
                         column(6, conditionalPanel(condition = "output.check_multID_bar2 == true",

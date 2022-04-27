@@ -120,7 +120,7 @@ app_server <- function( input, output, session ) {
   #carica il file
   loaded_database_cyto1 = eventReactive(input$loaddatabase,{
     if(!is.null(cyto_data1())){
-      showNotification(tagList(icon("check"), HTML("&nbsp;Cytotoxicity data loading...")), type = "message")
+      showNotification(tagList(icon("info"), HTML("&nbsp;Cytotoxicity data loading...")), type = "default")
       return(cyto_data1())
     }else{
       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
@@ -134,7 +134,12 @@ app_server <- function( input, output, session ) {
     }
   })
   
+  loaded_database_cyto = reactiveVal()
   
+  observeEvent(loaded_database_cyto1(),{
+    loaded_database_cyto(loaded_database_cyto1())
+  })
+
   #### update data if present
   cyto_from_mod = mod_load_cyto_server("load_cyto_mod")
   
@@ -149,26 +154,67 @@ app_server <- function( input, output, session ) {
   output$newdata_cyto_DT = renderDT({
     req(cyto_from_mod())
     if(input$summ_viewtable_updated == TRUE){
-      cyto_from_mod()$mydataset
+      cyto_from_mod()$mydataset %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }else{
-      cyto_from_mod()$myprocesseddata
+      cyto_from_mod()$myprocesseddata %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }
   },options = list(scrollX = TRUE))
   
-  loaded_database_cyto = reactiveVal()
-  
-  observeEvent(loaded_database_cyto1(),{
-    loaded_database_cyto(loaded_database_cyto1())
-  })
 
   observeEvent(input$update_cyto_bttn,{
     if(!is.null(cyto_from_mod())){
       loaded_database_cyto(update_database(old_data = loaded_database_cyto1(), new_data = cyto_from_mod()))
+      showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
     }
   })
   
   
 
+  ###### Upload updated
+  
+  #Upload
+  observeEvent(input$upload_updated_cyto,{
+    showModal(modalDialog(
+      title = "Upload an existing database (.rds)",
+      footer = modalButton("Close"),
+      fluidRow(
+        column(8,fileInput("upload_file_cyto", "Upload a database (.rds)", accept = ".rds")),
+        conditionalPanel(
+          condition = "output.check_fileuploaded_cyto == true",
+          column(3,br(),actionButton("load_upload_file_cyto", "Load!", icon("rocket"),style='padding:10px; font-size:140%; font-weight: bold;'))
+        )
+      )
+    ))
+  })
+  
+  
+  output$check_fileuploaded_cyto <- reactive({
+    return(!is.null(input$upload_file_cyto))
+  }) 
+  outputOptions(output, 'check_fileuploaded_cyto', suspendWhenHidden=FALSE)
+  
+  
+
+  
+  #import 
+  observeEvent(input$load_upload_file_cyto,{
+    req(input$upload_file_cyto)
+    ext <- tools::file_ext(input$upload_file_cyto$name)
+    if(ext != "rds"){
+      shinyWidgets::show_alert("Invalid file!", "Please upload a .rds file", type = "error")
+    }
+    validate(need(ext == "rds", "Invalid file! Please upload a .rds file"))
+    
+    file = readRDS(file = input$upload_file_cyto$datapath)
+    loaded_database_cyto(file)
+    showNotification(tagList(icon("check"), HTML("&nbsp;Uploaded database loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+  })
+  
+
+  
+  
+  ##### SAVE Updated
+  
   observeEvent(input$save_update,{
     shinyWidgets::ask_confirmation(
       inputId = "confirmsave_cyto",
@@ -180,19 +226,92 @@ app_server <- function( input, output, session ) {
     )
   })
 
+
   observeEvent(input$confirmsave_cyto,{
     checkdatabase = tryCatch({loaded_database_cyto()
       FALSE
     },shiny.silent.error = function(e) {TRUE})
     
+    
     if(input$confirmsave_cyto == TRUE && checkdatabase == FALSE){
-      filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
-      database_cyto = loaded_database_cyto()
-      saveRDS(database_cyto, file = filepath)
+      if(dim(loaded_database_cyto1()$exp_list)[1] == dim(loaded_database_cyto()$exp_list)[1]){
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+      }else{
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
+        saveRDS(loaded_database_cyto(), file = filepath)
+        show_alert(
+          title = "Upload completed!",
+          text = "Please restart ADViSEBioassay to save the changes.",
+          type = "success"
+        ) 
+      }
     }
   })
   
+  
+  
+  ##### download updated cyto ######
+  
+  #check all data correctly loaded. If TRUE -> error.
+  output$checkupdated_cyto_fordownload = reactive({
+    checkdatabase = tryCatch({cyto_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    check_file = file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds"))
+    if(all(checkdatabase, check_file) == TRUE){return(TRUE)}
+  })
+  outputOptions(output, "checkupdated_cyto_fordownload", suspendWhenHidden = FALSE)
+  
+  
+  
+  #### Download handler for the download button
+  output$download_updated_cyto <- downloadHandler(
+    #put the file name with also the file extension
+    filename = function() {
+      paste0("updated_cyto_", Sys.Date(), ".rds")
+    },
+    
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+      saveRDS(loaded_database_cyto(), file)
+    }
+  )
+  
+  
 
+  
+  
+  #### remove updated cyto #####
+  
+  observeEvent(input$remove_update_cyto,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmremove_cyto",
+      type = "warning",
+      title = "Do you want to restore the internal database?",
+      text = h4("By clicking yes, the original database will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  observeEvent(input$confirmremove_cyto,{
+    
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
+    
+    if(file.exists(filepath) == TRUE){
+      file.remove(filepath)
+      showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
+    }else{
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+    }
+  })
+  
+  
+
+  
+
+  
+  #load data
   data = reactive({
     req(loaded_database_cyto())
     loaded_database_cyto()$mydataset
@@ -220,9 +339,9 @@ app_server <- function( input, output, session ) {
   output$dtdata = renderDT({
     req(data())
     if(input$summ_viewtable == TRUE){
-      data()
+      data() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }else{
-      data_notsumm()
+      data_notsumm() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }
   },options = list(scrollX = TRUE))
   
@@ -787,9 +906,9 @@ app_server <- function( input, output, session ) {
   output$dt_heatmap = renderDT({
     req(data_heatmap())
     if(input$dose_op_heatmap == "filter"){
-      data_heatmap()[[input$dose_dtheatmap]]
+      data_heatmap()[[input$dose_dtheatmap]] %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }else{
-      data_heatmap()
+      data_heatmap() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }
   })
   
@@ -837,10 +956,16 @@ app_server <- function( input, output, session ) {
     updateSelectInput(session, "family_filt_bar", choices = unique(family))
   })
   
+  #purification
+  observeEvent(c(input$model_filt_bar,input$family_filt_bar),{
+    purif = dplyr::filter(data(), Model_type == input$model_filt_bar & Product_Family == input$family_filt_bar)
+    updateSelectInput(session, "purif_filt_bar", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
   
   output$check_multID_bar1 = reactive({
     req(data_notsumm())
-    data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar)
+    data_plot_not1 =  dplyr::filter(data_notsumm(), 
+                                    Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar & Purification == input$purif_filt_bar)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
   outputOptions(output, "check_multID_bar1", suspendWhenHidden = FALSE)
@@ -849,7 +974,7 @@ app_server <- function( input, output, session ) {
   output$barplot = plotly::renderPlotly({
     req(data_notsumm())
 
-    data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar)
+    data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar & Model_type == input$model_filt_bar & Purification == input$purif_filt_bar)
     cnts = data_notsumm() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
     
@@ -894,10 +1019,17 @@ app_server <- function( input, output, session ) {
   })
   
   
+  #purification
+  observeEvent(c(input$model_filt_bar2,input$family_filt_bar2),{
+    purif = dplyr::filter(data(), Model_type == input$model_filt_bar2 & Product_Family == input$family_filt_bar2)
+    updateSelectInput(session, "purif_filt_bar2", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
+  
   
   output$check_multID_bar2 = reactive({
     req(data_notsumm())
-    data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2)
+    data_plot_not1 =  dplyr::filter(data_notsumm(), 
+                                    Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2 & Purification == input$purif_filt_bar2)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
   outputOptions(output, "check_multID_bar2", suspendWhenHidden = FALSE)
@@ -906,7 +1038,8 @@ app_server <- function( input, output, session ) {
   output$barplot2 = plotly::renderPlotly({
     req(data_notsumm())
     
-    data_plot_not1 =  dplyr::filter(data_notsumm(), Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2)
+    data_plot_not1 =  dplyr::filter(data_notsumm(), 
+                                    Product_Family == input$family_filt_bar2 & Model_type == input$model_filt_bar2 & Purification == input$purif_filt_bar2)
     cnts = data_notsumm() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
 
@@ -953,7 +1086,7 @@ app_server <- function( input, output, session ) {
   
   
   output$valbox_D1 = renderUI({
-    if(exists("database_D1") == FALSE){
+    if(exists(" ") == FALSE){
       box(width = 12, background = "yellow",
           fluidPage(
             fluidRow(
@@ -1155,9 +1288,9 @@ app_server <- function( input, output, session ) {
   output$dtdata_D1 = renderDT({
     req(data_D1())
     if(input$summ_viewtable_D1 == TRUE){
-      data_D1()
+      data_D1() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }else{
-      data_notsumm_D1()
+      data_notsumm_D1() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }
   })
   

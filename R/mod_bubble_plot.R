@@ -47,7 +47,17 @@ mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
         ),
         
         h4(strong("Plot options")),
-        selectInput(ns("varsize_bubb"), "Variable for size argument", choices = size_choices)
+        selectInput(ns("varsize_bubb"), "Variable for size argument", choices = size_choices),
+        hr(),
+        h4(strong("Data bubbleplot")),
+        fluidRow(column(5, actionButton(ns("view_databubb"), "Check Data", icon("eye"))),
+                 column(7, downloadButton(ns("download_bubb"), "Download data"), style = "text-align:right")),
+        
+        tags$head(tags$style(paste0("#", ns("viewdt_bubble")," .modal-dialog{ width:1300px}"))),
+        shinyBS::bsModal(
+          ns("viewdt_bubble"), trigger = ns("view_databubb"), title = "Data Table Heatmap",
+          div(DT::DTOutput(ns("dt_bubble")), style = "overflow-x: scroll;")
+        )
         
       ),
       
@@ -112,7 +122,6 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       
       values_comb_bubb$comb <- rev(sort(unique(doses$Dose)))
       updateRadioButtons(session, "filt_dose_bubb", choices = c("All",sort(unique(doses$Dose))),inline = TRUE)
-
     })
     
 
@@ -280,6 +289,40 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       plotly::ggplotly(temp)
       
     })
+    
+    
+    
+    output$dt_bubble = renderDT({
+      req(data_bubble())
+      if(input$dose_op_bubb == "filter"){
+        if(input$filt_dose_bubb == "All"){
+          data_bubble() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+        }else{
+          data_bubble() %>% dplyr::filter(Dose == input$filt_dose_bubb) %>% 
+            dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+        }
+        
+      }else{
+        data_bubble() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+      }
+    })
+    
+    
+    #### Download handler for the download button
+    output$download_bubb <- downloadHandler(
+      #put the file name with also the file extension
+      filename = function() {
+        paste0("Data_bubbleplot", Sys.Date(), ".xlsx")
+      },
+      
+      # This function should write data to a file given to it by the argument 'file'.
+      content = function(file) {
+        openxlsx::write.xlsx(data_bubble(), file)
+      }
+    )
+    
+    
+    
  
   })
 }

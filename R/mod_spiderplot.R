@@ -15,21 +15,30 @@ mod_spiderplot_ui <- function(id){
       sidebarPanel(
         width = 3,
         selectInput(ns("typeeval_spid"), "Select a measure", choices = c("Cytotoxicity", "Vitality")),
-        selectInput(ns("model_filt_spid"), "Filter Model type", choices = ""),
-        selectInput(ns("family_filt_spid"), "Filter Product Family", choices = ""),
-        selectInput(ns("dose_filt_spid"), "Filter dose", choices = ""),
+        fluidRow(
+          column(6, selectInput(ns("model_filt_spid"), "Filter Model type", choices = "")),
+          column(6, selectInput(ns("family_filt_spid"), "Filter Product Family", choices = ""))),
+        fluidRow(
+          column(6, selectInput(ns("dose_filt_spid"), "Filter dose", choices = "")),
+          column(6, radioButtons(ns("purif_filt_spid"), "Filter dose", choices = "",inline = TRUE))),
         awesomeCheckbox(ns("add_2spider"), "Add a second sample", value = FALSE),
         conditionalPanel(
           condition = "input.add_2spider == true", ns = ns,
-          selectInput(ns("model_filt_spid2"), "Filter Model type", choices = ""),
-          selectInput(ns("family_filt_spid2"), "Filter Product Family", choices = ""),
-          selectInput(ns("dose_filt_spid2"), "Filter dose", choices = ""),
+          fluidRow(
+            column(6, selectInput(ns("model_filt_spid2"), "Filter Model type", choices = "")),
+            column(6, selectInput(ns("family_filt_spid2"), "Filter Product Family", choices = ""))),
+          fluidRow(
+            column(6, selectInput(ns("dose_filt_spid2"), "Filter dose", choices = "")),
+            column(6, radioButtons(ns("purif_filt_spid2"), "Filter dose", choices = "",inline = TRUE))),
           awesomeCheckbox(ns("add_3spider"), "Add a third sample", value = FALSE),
           conditionalPanel(
             condition = "input.add_3spider == true", ns = ns,
-            selectInput(ns("model_filt_spid3"), "Filter Model type", choices = ""),
-            selectInput(ns("family_filt_spid3"), "Filter Product Family", choices = ""),
-            selectInput(ns("dose_filt_spid3"), "Filter dose", choices = "")
+            fluidRow(
+              column(6, selectInput(ns("model_filt_spid3"), "Filter Model type", choices = "")),
+              column(6, selectInput(ns("family_filt_spid3"), "Filter Product Family", choices = ""))),
+            fluidRow(
+              column(6, selectInput(ns("dose_filt_spid3"), "Filter dose", choices = "")),
+              column(6, radioButtons(ns("purif_filt_spid3"), "Filter dose", choices = "",inline = TRUE)))
           )
           
         )
@@ -59,19 +68,23 @@ mod_spiderplot_server <- function(id, data){
     })
     
     
+    ### Product Family
     observeEvent({
       input$model_filt_spid
       input$model_filt_spid2
       input$model_filt_spid3
     },{
+      validate(need(input$model_filt_spid, "Select something in the Model Type filtering."))
       family1 = data() %>% dplyr::filter(Model_type == input$model_filt_spid) %>%
         dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
       updateSelectInput(session, "family_filt_spid", choices = unique(family1))
       
+      validate(need(input$model_filt_spid2, "Select something in the Model Type filtering."))
       family2 = data() %>% dplyr::filter(Model_type == input$model_filt_spid2) %>%
         dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
       updateSelectInput(session, "family_filt_spid2", choices = unique(family2))
       
+      validate(need(input$model_filt_spid3, "Select something in the Model Type filtering."))
       family3 = data() %>% dplyr::filter(Model_type == input$model_filt_spid3) %>%
         dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
       updateSelectInput(session, "family_filt_spid3", choices = unique(family3))
@@ -79,31 +92,64 @@ mod_spiderplot_server <- function(id, data){
     })
     
     
+    #### Dose
     observeEvent(input$family_filt_spid,{
+      validate(need(input$family_filt_spid, "Select something in the Product Family type filtering."))
       doses = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid)
       updateSelectInput(session, "dose_filt_spid", choices = unique(doses$Dose))
     })
     
     observeEvent(input$family_filt_spid2,{
+      validate(need(input$family_filt_spid2, "Select something in the Product Family type filtering."))
       doses2 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid2 & Model_type == input$model_filt_spid2)
       updateSelectInput(session, "dose_filt_spid2", choices = unique(doses2$Dose))
     })
     
     
     observeEvent(input$family_filt_spid3,{
+      validate(need(input$family_filt_spid3, "Select something in the Product Family type filtering."))
       doses3 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid3 & Model_type == input$model_filt_spid3)
       updateSelectInput(session, "dose_filt_spid3", choices = unique(doses3$Dose))
     })
     
     
+    
+    #### Purification
+    observeEvent(input$dose_filt_spid,{
+      validate(need(input$dose_filt_spid, "Select something in the Dose filtering."))
+      doses = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid & Dose == input$dose_filt_spid)
+      updateRadioButtons(session, "purif_filt_spid", choices = unique(doses$Purification))
+    })
+    
+    observeEvent(input$dose_filt_spid2,{
+      validate(need(input$dose_filt_spid2, "Select something in the Dose filtering."))
+      doses2 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid2 & Model_type == input$model_filt_spid2 & Dose == input$dose_filt_spid2)
+      updateRadioButtons(session, "purif_filt_spid2", choices = unique(doses2$Purification))
+    })
+    
+    
+    observeEvent(input$dose_filt_spid3,{
+      validate(need(input$dose_filt_spid3, "Select something in the Dose filtering."))
+      doses3 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid3 & Model_type == input$model_filt_spid3 & Dose == input$dose_filt_spid3)
+      updateRadioButtons(session, "purif_filt_spid3", choices = unique(doses3$Purification))
+    })
+    
+    
+    
+    
+    
     output$spidplot = renderPlot({
       req(data())
+      # validate(need(input$model_filt_spid, "Select something in the Model Type filtering."))
+      # validate(need(input$family_filt_spid, "Select something in the Product Family type filtering."))
+      # validate(need(input$dose_filt_spid, "Select something in the Dose filtering."))
+      # validate(need(input$purif_filt_spid, "Select something in the Purification filtering."))
       
       #measure type
       type_meas = ifelse(input$typeeval_spid == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
       
       data_plot1 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid) %>% 
-        dplyr::filter(Dose == input$dose_filt_spid) %>% 
+        dplyr::filter(Dose == input$dose_filt_spid) %>% dplyr::filter(Purification == input$purif_filt_spid) %>%
         dplyr::mutate(Product = stringr::str_split(Product, "_", simplify = T)[,ncol(stringr::str_split(Product, "_",simplify = T))]) %>% 
         dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
       cnts1 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot1$Experiment_id))
@@ -124,6 +170,7 @@ mod_spiderplot_server <- function(id, data){
         
         
       }else{
+        req(input$family_filt_spid2, input$model_filt_spid2, input$dose_filt_spid2, input$purif_filt_spid2)
         validate(need(paste(input$family_filt_spid,input$dose_filt_spid) != paste(input$family_filt_spid2,input$dose_filt_spid2), "Please select a different product or dose"))
         #first sample
         if(length(unique(data_plot1$Experiment_id))>1){
@@ -138,7 +185,7 @@ mod_spiderplot_server <- function(id, data){
         
         #second sample
         data_plot2 = data() %>% dplyr::filter(Model_type == input$model_filt_spid2 & Product_Family == input$family_filt_spid2) %>% 
-          dplyr::filter(Dose == input$dose_filt_spid2) %>% 
+          dplyr::filter(Dose == input$dose_filt_spid2) %>% dplyr::filter(Purification == input$purif_filt_spid2) %>% 
           dplyr::mutate(Product = stringr::str_split(Product, "_", simplify = T)[,ncol(stringr::str_split(Product, "_",simplify = T))]) %>% 
           dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
         cnts2 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot2$Experiment_id)) 
@@ -172,12 +219,13 @@ mod_spiderplot_server <- function(id, data){
           
           
         }else{
+          req(input$family_filt_spid3, input$model_filt_spid3, input$dose_filt_spid3, input$purif_filt_spid3)
           #third sample
           validate(need(paste(input$family_filt_spid2,input$dose_filt_spid2) != paste(input$family_filt_spid3,input$dose_filt_spid3), "Please select a different product or dose"))
           validate(need(paste(input$family_filt_spid,input$dose_filt_spid) != paste(input$family_filt_spid3,input$dose_filt_spid3), "Please select a different product or dose"))
           
           data_plot3 = data() %>% dplyr::filter(Model_type == input$model_filt_spid3) %>% dplyr::filter(Product_Family == input$family_filt_spid3) %>% 
-            dplyr::filter(Dose == input$dose_filt_spid3) %>% 
+            dplyr::filter(Dose == input$dose_filt_spid3) %>% dplyr::filter(Purification == input$purif_filt_spid3) %>% 
             dplyr::mutate(Product = stringr::str_split(Product, "_", simplify = T)[,ncol(stringr::str_split(Product, "_",simplify = T))]) %>% 
             dplyr::mutate(Product = case_when(Product == "" ~ "Ext", TRUE ~ Product))
           cnts3 =  dplyr::filter(data(), stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot3$Experiment_id)) 
