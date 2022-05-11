@@ -22,34 +22,49 @@ knitr::opts_chunk$set(
 The goal of ADViSEBioassay is to ...
 
 ## Installation
+ADViSEBioassay is a stand-alone application implemented using the R language (R > 4.0) and the Shiny libraries. It can be installed as any other R package on several operating systems (Windows, macOS and Linux). Before installing the package you have to perform few supplementary steps based on your operating systems:
 
-You can install the development version of ADViSEBioassay like so:
+* **Windows (tested on Windows 10 64bit)**\ 
+
+Before installing the package you need also to install Rtools from the following link:
+
+https://cran.r-project.org/bin/windows/Rtools.
+
+* **MacOS**\
+If you are on MacOs run the following codes in the console:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+brew install imagemagick@6
+brew install cairo
 ```
 
-## Example
+* **Ubuntu (tested on 18.04).**\
 
-This is a basic example which shows you how to solve a common problem:
+If you are on Ubuntu run the following codes in the console:
+```
+sudo apt install build-essential libcurl4-gnutls-dev libxml2-dev libssl-dev
+sudo apt-get install libcairo2-dev
+sudo apt-get install libxt-dev
+sudo apt install libmagick++-dev
+sudo apt-get install libc6
+sudo apt-get install libnlopt-dev
 
-```{r example}
-library(ADViSEBioassay)
-## basic example code
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+After that, open RStudio, check if you have already installed the ```{devtools}``` package and run the following code:
 
-```{r cars}
-summary(cars)
+``` r
+devtools::install_github("ShinyFabio/ADViSEBioassay")
+```
+Be careful that if you need to install many packages and you decide to use compilation, the process could take a lot depending on your hardware and operating system.
+
+## Usage
+Once the installation is completed, run:
+
+``` r
+library("ADViSEBioassay")
+run_app()
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this. You could also use GitHub Actions to re-render `README.Rmd` every time you push. An example workflow can be found here: <https://github.com/r-lib/actions/tree/v1/examples>.
-
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
-```
-
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+## Funding
+...ADViSE
