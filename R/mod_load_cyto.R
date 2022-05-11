@@ -39,7 +39,7 @@ mod_load_cyto_ui <- function(id){
 #' load_cyto Server Functions
 #'
 #' @noRd 
-mod_load_cyto_server <- function(id){
+mod_load_cyto_server <- function(id, data_type = "cyto"){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
     
@@ -53,7 +53,7 @@ mod_load_cyto_server <- function(id){
       }
       validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
       showNotification(tagList(icon("check"), HTML("&nbsp;Experiment list file loaded.")), type = "message")
-      readxl::read_xlsx(input$exp_list_file$datapath) %>% janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
+      readxl::read_xlsx(input$exp_list_file$datapath) %>% janitor::remove_empty(which = "rows", quiet = FALSE)
     })
     
     
@@ -161,55 +161,88 @@ mod_load_cyto_server <- function(id){
         return(NULL)
       } else {
         
-        #check wavelength
-        expid_for_test = dplyr::filter(exp_list(), Instrument == "EZ_READ_2000" & Scan == "Double")$Experiment_id
-        temp = list()
-        temp = lapply(expid_for_test, function(x){
-          exp_list = dplyr::filter(exp_list(), Experiment_id == x)
-          if(exp_list$Scan == "Double" && exp_list$Instrument == "EZ_READ_2000"){
-            mydata <- as.data.frame(readxl::read_excel(paste0(exp_list$Path,exp_list$File), sheet = "Results")) %>%
-              dplyr::select(where(is.double))
-            wave = stringr::str_split(exp_list$Wavelength, ",", simplify = T)
-            if(!all(wave %in% colnames(mydata))){
-              return(exp_list$File)
+        ##### cyto #####
+        if(data_type == "cyto"){
+          #check wavelength
+          expid_for_test = dplyr::filter(exp_list(), Instrument == "EZ_READ_2000" & Scan == "Double")$Experiment_id
+          temp = list()
+          temp = lapply(expid_for_test, function(x){
+            exp_list = dplyr::filter(exp_list(), Experiment_id == x)
+            if(exp_list$Scan == "Double" && exp_list$Instrument == "EZ_READ_2000"){
+              mydata <- as.data.frame(readxl::read_excel(paste0(exp_list$Path,exp_list$File), sheet = "Results")) %>%
+                dplyr::select(where(is.double))
+              wave = stringr::str_split(exp_list$Wavelength, ",", simplify = T)
+              if(!all(wave %in% colnames(mydata))){
+                return(exp_list$File)
+              }
             }
+          })
+          where = Filter(Negate(is.null), temp) %>% unlist()
+          if(!is.null(where)){
+            showNotification(tagList(icon("times-circle"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
+            return(NULL)
           }
-        })
-        where = Filter(Negate(is.null), temp) %>% unlist()
-        if(!is.null(where)){
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
+          
+          
+          processed.experiment = list()
+          expid = exp_list()$Experiment_id
+          
+          percentage <- 0
+          
+          withProgress(message = "Reading data...", value=0, {
+            processed.experiment = lapply(expid, function(x){
+              exp_list = dplyr::filter(exp_list(), Experiment_id == x)
+              percentage <<- percentage + 1/length(expid)*100
+              incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
+              print(paste("Loading experiment",x,sep =" "))  
+              file_explist = dplyr::filter(exp_list, Experiment_id == x)
+              read_cytoxicity(ifile = file_explist$File, 
+                              path = file_explist$Path,
+                              instrument = file_explist$Instrument,
+                              scan = file_explist$Scan, 
+                              sample.anno=dplyr::filter(target(), Experiment_id == x),
+                              wave = file_explist$Wavelength) %>%
+                eval_cytoxicity()
+              
+            })
+          })
+          
+          col_to_check = c("Model_type","Model_Family", "Product_Family")
+          
+        }else if(data_type == "D1"){
+          ##### D1 ####
+          
+          processed.experiment = list()
+          expid = exp_list()$Experiment_id
+          
+          percentage <- 0
+          
+          withProgress(message = "Reading data...", value=0, {
+            processed.experiment = lapply(expid, function(x){
+              percentage <<- percentage + 1/length(expid)*100
+              incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
+              print(paste("Loading experiment",x,sep =" "))
+              
+              file_explist = dplyr::filter(exp_list(), Experiment_id == x)
+              file_target = dplyr::filter(target(), Experiment_id == x)
+              read_D1(file_explist, file_target, filter.na = "Product")
+            })
+          })
+          
+          #names(processed.experiment) = expid
+          #myprocesseddata_D1 = tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
+          
+          col_to_check = c("Model_type", "Product_Family")
+        }else{
+          message("data_type different from cyto and D1. Probably a typo inside the code. Check mod_load_cyto.R")
           return(NULL)
         }
-        
-        
-        processed.experiment = list()
-        expid = exp_list()$Experiment_id
-        
-        percentage <- 0
-        
-        withProgress(message = "Reading data...", value=0, {
-          processed.experiment = lapply(expid, function(x){
-            exp_list = dplyr::filter(exp_list(), Experiment_id == x)
-            percentage <<- percentage + 1/length(expid)*100
-            incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
-            print(paste("Loading experiment",x,sep =" "))  
-            file_explist = dplyr::filter(exp_list, Experiment_id == x)
-            read_cytoxicity(ifile = file_explist$File, 
-                            path = file_explist$Path,
-                            instrument = file_explist$Instrument,
-                            scan = file_explist$Scan, 
-                            sample.anno=dplyr::filter(target(), Experiment_id == x),
-                            wave = file_explist$Wavelength) %>%
-              eval_cytoxicity()
-            
-          })
-        })
+
         
         names(processed.experiment) = expid
         myprocesseddata = tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
         
-        col_to_check = c("Model_type","Model_Family", "Product_Family")
-        
+
         err = 0
         for(i in col_to_check){
           if(TRUE %in% is.na(myprocesseddata[,i])){
@@ -230,7 +263,14 @@ mod_load_cyto_server <- function(id){
     
     data = reactive({
       req(data_notsumm())
-      summarise_cytoxicity(data_notsumm(), group = c("Experiment_id","Model_type", "Model_Family", "Product","Product_Family", "Dose", "Purification"))
+      if(data_type == "cyto"){
+        summarise_cytoxicity(data_notsumm(), group = c("Experiment_id","Model_type", "Model_Family", "Product","Product_Family", "Dose", "Purification"))
+      }else if(data_type == "D1"){
+        summarise_cytoxicity(data_notsumm(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
+      }else{
+        message("data_type different from cyto and D1. Probably a typo inside the code. Check mod_load_cyto.R")
+        return(NULL)
+      }
     })
     
     

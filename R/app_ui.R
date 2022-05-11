@@ -6,10 +6,10 @@
 #' @importFrom DT DTOutput
 #' @import shinyWidgets
 #' @import shinydashboard
-#' @importFrom fresh use_theme
 #' @importFrom InteractiveComplexHeatmap InteractiveComplexHeatmapOutput
 #' @importFrom plotly plotlyOutput
 #' @importFrom shinyBS bsModal
+#' @importFrom shinycssloaders withSpinner
 #' 
 #' @noRd
 #' 
@@ -25,39 +25,19 @@ app_ui <- function(request) {
     tags$head(tags$link(rel = "stylesheet", type = "text/css", href = "www/custom_dashboardheader_title.css")),
 
     dashboardPage(
-      #title = "ADViSEBioassay",
- 
-      # header = bs4DashNavbar(
-      #   skin = "light", status = "primary",
-      #   title = dashboardBrand("ADViSEBioassay", color = "primary", 
-      #                          href = "https://github.com/ShinyFabio/ADViSEBioassay", image = "www/logo_ADViSEBioassay.png"),
-      #   
-      #   rightUi = tags$li(class = "dropdown", actionButton(inputId  = "jumptohome", label =NULL, icon = icon("home"),status = "primary")) #
-      # ),
-      
+
       dashboardHeader(title = span(
         tagList(tags$img(src = "www/logo_ADViSEBioassay.png", width = "32px",style="margin-right: 4px;"), "ADViSEBioassay")),
         tags$li(class = "dropdown", actionBttn("jumptohome", icon = icon("home"), style = "stretch", size = "lg"))),
       
 
       sidebar = dashboardSidebar(
-        #skin = "light", 
-        #inputId = "sidebarState",
-        
+
         sidebarUserPanel(name = textOutput("nome"),
                          subtitle = actionButton('change','Change', style='padding:0px; height:18px; font-size:90%'),
                          image = "www/userimage.png"
         ),
-        # tags$div(
-        #   class = "user-panel mt-3 pb-3 mb-3",
-        #   fluidRow(
-        #     column(3, tags$img(src = "www/userimage.png",style = "width:45px;", class = "img-circle elevation-2")),
-        #     column(8, 
-        #            fluidRow(textOutput("nome"), style = "color:white;"),
-        #            fluidRow(actionButton('change','Change', 
-        #                         style='padding:0px; height:18px; font-size:90%;background-color: #2c2f76;border-color: #2c2f76;color: white;'))
-        #   ))),
-        
+
         sidebarMenu(
           id = "sidebarmenu",
           menuItem("Home", tabName = "home", icon = icon("home")),
@@ -65,12 +45,8 @@ app_ui <- function(request) {
           menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("file-import"))
         )
       ),
-      
-      #controlbar = dashboardControlbar(),  #il controlbar a destra
-      #footer = dashboardFooter(), ##aggiunge una barra sotto a tutto dove posso scrivere qualcosa
 
       body = dashboardBody(
-        #fresh::use_theme(theme_ADViSE_fresh),
         theme_ADViSE,
         
         #####menu home ####
@@ -98,13 +74,7 @@ app_ui <- function(request) {
                   uiOutput("valbox_cyto"),
                   uiOutput("valbox_D1"),
                   div(actionButton("loaddatabase", label = HTML("&nbsp;Load database!"), icon("rocket"), class = "btn btn-primary btn-lg", style='padding:10px; font-size:140%; font-weight: bold;'),style = "text-align: center;")
-                  #hr(),
-                  
-                  #actionButton("upaziendedata", HTML("&nbsp;Update database"), icon("file-upload"),  style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;'),
-                  #actionButton("download_cyto", "Download database", icon("download"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')
               )
-              
-              
               
             )
 
@@ -132,16 +102,8 @@ app_ui <- function(request) {
                     )),
                     
                     shinycssloaders::withSpinner(DT::DTOutput("dtdata"))),
+                
                 fluidRow(
-                  
-                  # column(
-                  #   2, style = "text-align:center;",
-                  #   actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;'),
-                  #   strong(h3("or", style = "margin-top: 10px;")),
-                  #   actionButton("upload_updated_cyto", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
-                  # ),
-                  
-                  
                   column(
                     1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
                     actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
@@ -307,7 +269,7 @@ app_ui <- function(request) {
               ##### BubblePlot #####
               tabPanel(
                 "Bubble Plot",
-                mod_bubble_plot_ui("bubbleplot_cyto",  c("Corrected_value", "CV"))
+                mod_bubble_plot_ui("bubbleplot_cyto",  c("CV", "Corrected_value"))
               ),
               
               #### Heatmap ####
@@ -342,8 +304,8 @@ app_ui <- function(request) {
                                conditionalPanel(
                                  condition = "input.dose_op_heatmap == 'subtract'",
                                  fluidRow(
-                                   column(6, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
-                                   column(6, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt"))))
+                                   column(7, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
+                                   column(5, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt"))))
                                )
                              )
                              
@@ -441,41 +403,118 @@ app_ui <- function(request) {
             tabsetPanel(id = "tabsetd1",
               tabPanel(
                 "Data",
-                sidebarLayout(
-                  sidebarPanel(
-                    width = 3,
-                    fluidRow(
-                      column(10, fileInput("exp_list_file_D1","Select the Experiment list file (.xlsx)")),
-                      column(
-                        2, style="padding-left: 9px; padding-top: 4px;",br(), 
-                        mod_edit_data_ui("edit_exp_list_D1"))
-                    ),
-                    conditionalPanel(
-                      condition = "output.check_explist_D1 == false",
-                      fluidRow(
-                        column(10, fileInput("target_file_D1","Select the Target file (.xlsx)")),
-                        column(
-                          2, br(), style="padding-left: 9px; padding-top: 4px;",
-                          mod_edit_data_ui("edit_target_D1"))
-                      )
-                    ),
-                    conditionalPanel(
-                      condition = "output.check_target_D1 == false",
-                      div(actionButton("gocyto_D1", "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
-                    ),
-                    conditionalPanel(
-                      condition = "output.check_data_D1 == false",
-                      hr(),
-                      materialSwitch("summ_viewtable_D1", label = "Summarize data", value = TRUE, status = "primary")
-                    )
+                
+                box(width = 12, status = "primary",
+                    fluidRow(column(
+                      width = 1, style="width: 7rem;",
+                      dropdownButton(
+                        conditionalPanel(condition = "output.check_data_D1 == false",
+                                         h5(strong("Summarized data")),
+                                         materialSwitch("summ_viewtable_D1", value = TRUE, status = "primary")
+                        ),
+                        circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                        tooltip = tooltipOptions(title = "Click to see options"))
+                    )),
                     
-                    
+                    shinycssloaders::withSpinner(DT::DTOutput("dtdata_D1"))),
+                
+                ### barra database D1
+                fluidRow(
+                  column(
+                    1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
+                    actionButton("upD1_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
-                  mainPanel(
-                    width = 9,
-                    div(DT::DTOutput("dtdata_D1"), style = "overflow-x: scroll;")
+                  column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
+                  column(
+                    1, style = "padding-right: 30rem; padding-left: 2rem;",
+                    actionButton("upload_updated_D1", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                  ),
+                  column(
+                    2, style = "text-align:center;",
+                    actionButton("save_update_D1", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                  ),
+                  conditionalPanel(
+                    condition = "output.checkupdated_D1_fordownload == true",
+                    column(
+                      3, style = "text-align:center;",
+                      downloadButton("download_updated_D1", "Download database", style='padding:10px; font-size:140%; font-weight: bold;')
+                    )
+                  ),
+                  column(
+                    2, style = "text-align:center;",
+                    actionButton("remove_update_D1", HTML("&nbsp;Restore database"),icon("undo"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
+                  )
+                  
+                ),
+                
+                tags$head(tags$style("#upD1_tab .modal-dialog{ min-width:170rem}")),
+                tags$head(tags$style("#upD1_tab .modal-body{ min-height:80rem}")),
+                shinyBS::bsModal(
+                  "upD1_tab", "Update database", trigger = "upD1_modalbutton", size = "large",
+                  sidebarLayout(
+                    sidebarPanel(width = 3,
+                                 mod_load_cyto_ui("load_D1_mod"), ###############################################
+                                 hr(),
+                                 conditionalPanel(
+                                   condition = "output.check_data_updated_D1 == false",
+                                   div(actionButton("update_D1_bttn", "Merge!",icon("edit"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
+                                 
+                    ),
+                    mainPanel(
+                      width = 9,
+                      box(width = NULL, status = "primary",
+                          fluidRow(
+                            column(width = 1, style="width: 7rem;",
+                                   dropdownButton(
+                                     conditionalPanel(condition = "output.check_data_updated_D1 == false",
+                                                      h5(strong("Summarized data")),
+                                                      materialSwitch("summ_viewtable_updated_D1", value = TRUE, status = "primary")
+                                     ),
+                                     circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                                     tooltip = tooltipOptions(title = "Click to see options"))
+                            )),
+                          
+                          shinycssloaders::withSpinner(DTOutput("newdata_D1_DT")))
+                      
+                    )
                   )
                 )
+                
+                # sidebarLayout(
+                #   sidebarPanel(
+                #     width = 3,
+                #     fluidRow(
+                #       column(10, fileInput("exp_list_file_D1","Select the Experiment list file (.xlsx)")),
+                #       column(
+                #         2, style="padding-left: 9px; padding-top: 4px;",br(), 
+                #         mod_edit_data_ui("edit_exp_list_D1"))
+                #     ),
+                #     conditionalPanel(
+                #       condition = "output.check_explist_D1 == false",
+                #       fluidRow(
+                #         column(10, fileInput("target_file_D1","Select the Target file (.xlsx)")),
+                #         column(
+                #           2, br(), style="padding-left: 9px; padding-top: 4px;",
+                #           mod_edit_data_ui("edit_target_D1"))
+                #       )
+                #     ),
+                #     conditionalPanel(
+                #       condition = "output.check_target_D1 == false",
+                #       div(actionButton("gocyto_D1", "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
+                #     ),
+                #     conditionalPanel(
+                #       condition = "output.check_data_D1 == false",
+                #       hr(),
+                #       materialSwitch("summ_viewtable_D1", label = "Summarize data", value = TRUE, status = "primary")
+                #     )
+                #     
+                #     
+                #   ),
+                #   mainPanel(
+                #     width = 9,
+                #     div(DT::DTOutput("dtdata_D1"), style = "overflow-x: scroll;")
+                #   )
+                # )
                 
               ), #end of tabpanel D1
               
@@ -515,8 +554,10 @@ app_ui <- function(request) {
                   sidebarPanel(
                     width = 3,
                     selectInput("typeeval_bar_D1", "Select a measure", choices = c("Cytotoxicity", "Vitality")),
-                    selectInput("model_filt_bar_D1", "Filter Model type", choices = ""),
-                    selectInput("family_filt_bar_D1", "Filter Product Family", choices = ""),
+                    fluidRow(
+                      column(6, selectInput("model_filt_bar_D1", "Filter Model type", choices = "")),
+                      column(6, selectInput("family_filt_bar_D1", "Filter Product Family", choices = ""))),
+                    selectInput("purif_filt_bar_D1", "Select a purification", choices = ""),
                     fluidRow(
                       column(6, awesomeCheckbox("addpoints_barplot_D1", "Add points", value = TRUE)),
                       column(6, conditionalPanel(condition = "output.check_multID_bar1_D1 == true",
@@ -527,8 +568,10 @@ app_ui <- function(request) {
                       condition = "output.show_barplot2_D1 == true",
                       br(),
                       selectInput("typeeval_bar2_D1", "Select a measure", choices = c("Cytotoxicity", "Vitality")),
-                      selectInput("model_filt_bar2_D1", "Filter Model type", choices = ""),
-                      selectInput("family_filt_bar2_D1", "Filter Product Family", choices = ""),
+                      fluidRow(
+                        column(6, selectInput("model_filt_bar2_D1", "Filter Model type", choices = "")),
+                        column(6, selectInput("family_filt_bar2_D1", "Filter Product Family", choices = ""))),
+                      selectInput("purif_filt_bar2_D1", "Select a purification", choices = ""),
                       fluidRow(
                         column(6, awesomeCheckbox("addpoints_barplot2_D1", "Add points", value = TRUE)),
                         column(6, conditionalPanel(condition = "output.check_multID_bar2_D1 == true",
@@ -585,8 +628,8 @@ app_ui <- function(request) {
                         conditionalPanel(
                           condition = "input.dose_op_heatmap_D1 == 'subtract'",
                           fluidRow(
-                            column(6, selectInput("subdose_heatmap_D1", "Subtract:", choices = c("30-5"))),
-                            column(6, style="padding-top: 5px;",br(), actionButton("revdose_heat_D1", icon("exchange-alt"))))
+                            column(7, selectInput("subdose_heatmap_D1", "Subtract:", choices = c("30-5"))),
+                            column(5, style="padding-top: 5px;",br(), actionButton("revdose_heat_D1", icon("exchange-alt"))))
                         )
                       )
 

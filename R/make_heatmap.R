@@ -5,7 +5,6 @@
 #' @param data A summarizedexperiment object. Tested only on sumexp averaged
 #' @param add_rowannot A column used for the left (row) annotation (e.g. "Product_Batch")
 #' @param add_colannot A column used for the bottom (column) annotation (e.g. "Class")
-#' @param scale_data Scaling data option. Data can be scaled (using scale()) by row ("row"), by column ("column") or not scaled ("none"). The result is the z-score.
 #' @param row_dend Boolean. Render dendogram on rows (TRUE or FALSE).
 #' @param col_dend Boolean. Render dendogram on columns (TRUE or FALSE).
 #' @param row_nclust Numeric. Number of cluster in the row dendrogram.
@@ -16,6 +15,10 @@
 #' @param unit_legend An unit label for the legend. If data are scaled will be "Z-score" otherwise will be the input.
 #' @param col_label_size Size of the column labels. By default col_label_size = 10.
 #' @param color_scale Color scale for the cells. By default is circlize::colorRamp2(c(0, 100), c("white", "blue")).
+#' @param order_data Boolean. Set to TRUE if you want to order.
+#' @param add_values Boolean. Set to TRUE if you want to show cell numbers.
+#' @param thresh_values Numeric. The threshold for the cell number.
+#' @param typeeval_heat String. The column used for the heatmap. By default "Cytotoxicity.average".
 #'
 #' @importFrom dplyr select arrange across left_join all_of
 #' @importFrom stats dist hclust as.dendrogram setNames
@@ -31,7 +34,6 @@
 
 
 make_heatmap = function(data,
-                        filt_data_col = "All",
                         add_rowannot = "Model_Family",
                         add_colannot = NULL,
                         title = "CBC150",
@@ -51,19 +53,12 @@ make_heatmap = function(data,
                         thresh_values = 0,
                         typeeval_heat = "Cytotoxicity.average"){
   
-#data = dplyr::arrange(data, Product_Family)
-#data = cbc_filtered
   if(order_data == TRUE){
     data = order_data(data, as_factor = FALSE)
   }
 
-  
-  # #filter column
-  # if(!("All" %in% filt_data_col)){
-  #   temp = dplyr::filter(data, Product_Family %in% filt_data_col)
-  # }else{
-    temp = data
-  # }
+
+  temp = data
   data_for_annotcol = temp
   
   temp = temp %>% dplyr::select(Product, Model_type, dplyr::all_of(typeeval_heat)) %>%

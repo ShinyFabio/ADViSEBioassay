@@ -6,8 +6,10 @@
 #'
 #' @noRd 
 #'
-#' @importFrom shiny NS tagList 
-mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
+#' @importFrom shiny NS tagList
+#' @importFrom shinycssloaders withSpinner
+#' 
+mod_bubble_plot_ui <- function(id, size_choices = c("CV", "Corrected_value")){
   ns <- NS(id)
   tagList(
     sidebarLayout(
@@ -47,7 +49,17 @@ mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
         ),
         
         h4(strong("Plot options")),
-        selectInput(ns("varsize_bubb"), "Variable for size argument", choices = size_choices),
+        fluidRow(
+          column(7, selectInput(ns("varsize_bubb"), "Variable for size argument", choices = size_choices)),
+          conditionalPanel(
+            condition = "input.varsize_bubb == 'CV'", ns = ns,
+            column(5, h5(strong("Filter per CV")), materialSwitch(ns("CV_filtering"), value = FALSE, status = "primary"))
+          )
+        ),
+        conditionalPanel(
+          condition = "input.CV_filtering == true", ns = ns,
+          sliderInput(ns("CV_threshold"), "High CV threshold", min = 0, max = 1, value = 1, step = 0.05)
+        ),
         hr(),
         h4(strong("Data bubbleplot")),
         fluidRow(column(5, actionButton(ns("view_databubb"), "Check Data", icon("eye"))),
@@ -71,6 +83,8 @@ mod_bubble_plot_ui <- function(id, size_choices = c("Corrected_value", "CV")){
 }
     
 #' bubble_plot Server Functions
+#' 
+#' @importFrom stats na.omit
 #'
 #' @noRd 
 mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
@@ -132,7 +146,7 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
     observeEvent(values_comb_bubb$comb,{
       req(values_comb_bubb$comb)
       if(!is.null(values_comb_bubb$comb)){
-        combin = combn(values_comb_bubb$comb, 2, paste, collapse = '-')
+        combin = utils::combn(values_comb_bubb$comb, 2, paste, collapse = '-')
         updateSelectInput(session, "subdose_bubb", choices = combin)
       }
     })
@@ -264,18 +278,39 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       
       type_cv = ifelse(type_data == "cyto", input$varsize_bubb, paste0(input$typeeval_bubb, ".CV"))
       ord = order_data(data_bubble(),as_factor = TRUE)
-      
-      temp = ggplot(ord, aes(x = Product, y = Model_type)) +
-        geom_point(aes(size = !!sym(type_cv), color = !!sym(type_meas)), alpha = 0.75, shape = 16) + 
-        scale_size_continuous(range = c(1,10)) +
-        theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
-      
-      #se ci sono NA in type_cv aggiungo i punti
-      if(TRUE %in% is.na(ord[,type_cv])){
-        temp = temp + geom_point(data = dplyr::filter(ord, is.na(dplyr::across(type_cv))), aes(color = !!sym(type_meas),shape='NA'), size=4) +
-          scale_shape_manual(values=c('NA'=17, 'Not NA'=19))
+
+      if(input$CV_filtering == TRUE){
+        ord = ord %>% dplyr::mutate(Shape = dplyr::case_when(is.na(dplyr::across(type_cv)) ~ "NA", 
+                                                      dplyr::across(type_cv) > input$CV_threshold ~ "Large CV", 
+                                                      TRUE ~ "Low CV"))
+        
+        temp = ggplot(data = dplyr::filter(ord, !is.na(dplyr::across(type_cv))), 
+                      aes(x = Product, y = Model_type, size = !!sym(type_cv), color = !!sym(type_meas), shape = Shape)) +
+          geom_point(alpha = 0.75, na.rm=FALSE) + scale_size_continuous(range = c(1,10)) + 
+          scale_shape_manual(values=c("Large CV"=10, "Low CV"=19, "NA"= 17)) +
+          theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
+        
+        #se ci sono NA in type_cv aggiungo i punti
+        if(TRUE %in% is.na(ord[,type_cv])){
+          temp = temp + geom_point(data = dplyr::filter(ord, is.na(dplyr::across(type_cv))), aes(shape='NA'), size=4)
+        }
+        
+      }else{
+        
+        temp = ggplot(ord, aes(x = Product, y = Model_type, size = !!sym(type_cv), color = !!sym(type_meas))) +
+          geom_point(alpha = 0.75, shape = 16) + 
+          scale_size_continuous(range = c(1,10)) +
+          theme(panel.background = element_rect(fill = "#C8C8C8"), axis.text.x = element_text(angle = 90,vjust = 0.4,hjust = 1))
+        
+        #se ci sono NA in type_cv aggiungo i punti
+        if(TRUE %in% is.na(ord[,type_cv])){
+          temp = temp + geom_point(data = dplyr::filter(ord, is.na(dplyr::across(type_cv))), aes(shape='NA'), size=4) +
+            scale_shape_manual(values=c('NA'=17, 'Not NA'=19))
+        }
+        
       }
       
+
       
       if(input$dose_op_bubb == "filter"){
         temp = temp + facet_wrap(~Dose)

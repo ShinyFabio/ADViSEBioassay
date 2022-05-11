@@ -21,7 +21,17 @@ The rows must contain a row with maximum values and a row with mininum values, p
 
 \item{color}{Function that provides colors to the plot. For example color = grDevices::hcl.colors(2, palette = "Dynamic").}
 
+\item{vlabels}{Character vector for the names for variables.}
+
 \item{caxislabels}{Range of values inside the spider plot (eg. caxislabels = c(0, 2, 5, 7, 10)).}
+
+\item{title}{title of the spiderplot}
+
+\item{x_legend}{x position of the legend.}
+
+\item{y_legend}{y position of the legend.}
+
+\item{...}{other}
 }
 \description{
 This function make a customized spider plot using the {fmsb} package.

@@ -2,7 +2,14 @@
 #'
 #' @description \code{read_cytoxicity} draw multiple break line (br())
 #'
-#' @param X X
+#' @param ifile File name to be read. (eg. "P 436_490 nm.xlsx")
+#' @param path The path where is the file.
+#' @param instrument Instrument used for that file. Allowed "EZ_READ_2000" or "4300_CHROMATE_PLATE_READER".
+#' @param scan If the file is read in Single or Double scan.
+#' @param wave The wavelength (eg. A490)
+#' @param sample.anno Relative target file of that experiment
+#' @param sep Separator. By default ","
+#' @param filter.na The column where apply the NA filtering.
 #'
 #' @importFrom dplyr select mutate left_join
 #' @importFrom readxl read_excel
@@ -11,7 +18,7 @@
 #' @importFrom shiny showNotification
 #'
 
-read_cytoxicity = function(ifile, path= getwd(),instrument="EZ_READ_2000", scan="Single", wave, sample.anno=NULL,sep=",",filter.na="Product"){
+read_cytoxicity = function(ifile, path = getwd(),instrument="EZ_READ_2000", scan="Single", wave, sample.anno=NULL,sep=",",filter.na="Product"){
   
   #print("Reading raw data")
   if (scan=="Single") {

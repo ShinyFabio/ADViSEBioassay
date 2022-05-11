@@ -2,6 +2,10 @@
 .Rhistory
 .Rapp.history
 
+#  Updated database
+data/cyto
+data/D1
+
 # Session Data files
 .RData
 

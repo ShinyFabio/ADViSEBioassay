@@ -7,7 +7,6 @@
 #' @export
 #' @importFrom shiny shinyApp
 #' @importFrom golem with_golem_options
-#' @importFrom thematic thematic_shiny
 run_app <- function(
   onStart = NULL,
   options = list(), 
@@ -15,8 +14,6 @@ run_app <- function(
   uiPattern = "/",
   ...
 ) {
-  thematic::thematic_shiny()
-  
   with_golem_options(
     app = shinyApp(
       ui = app_ui,

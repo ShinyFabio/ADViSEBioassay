@@ -7,9 +7,16 @@
 #' The rows must contain a row with maximum values and a row with mininum values, plus one or two rows with a "Codice_azienda".
 #' @param caxislabels Range of values inside the spider plot (eg. caxislabels = c(0, 2, 5, 7, 10)).
 #' @param color Function that provides colors to the plot. For example color = grDevices::hcl.colors(2, palette = "Dynamic").
+#' @param vlabels Character vector for the names for variables.
+#' @param title title of the spiderplot
+#' @param x_legend x position of the legend.
+#' @param y_legend y position of the legend.
+#' @param ... other
 #' 
 #' 
 #' @importFrom fmsb radarchart
+#' @importFrom graphics legend
+#' @importFrom scales alpha
 #' 
 #' @examples \dontrun{
 #' 
@@ -43,6 +50,6 @@ create_beautiful_radarchart <- function(data, color = "#00AFBB",
     vlcex = 1.3, vlabels = vlabels, seg = 5,
     caxislabels = caxislabels, title = title, ...
   )
-  legend(x=x_legend, y=y_legend, legend = rownames(data)[-c(1,2)], bty = "n", pch=20 , col=color , text.col = "black", cex=1.2, pt.cex=3)
+  graphics::legend(x=x_legend, y=y_legend, legend = rownames(data)[-c(1,2)], bty = "n", pch=20 , col=color , text.col = "black", cex=1.2, pt.cex=3)
   
 }

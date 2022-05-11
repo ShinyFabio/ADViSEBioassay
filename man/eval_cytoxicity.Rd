@@ -7,7 +7,13 @@
 eval_cytoxicity(X, ref = "Product", background = "BACKGROUND", CTRL = "CTRL")
 }
 \arguments{
-\item{X}{X}
+\item{X}{data}
+
+\item{ref}{Column that contains the information about background and CTRL. By default "Product"}
+
+\item{background}{The value inside the Product column that refers to the background. By default BACKGROUND}
+
+\item{CTRL}{The value inside the Product column that refers to the control. By default CTRL}
 }
 \description{
 \code{eval_cytoxicity} draw multiple break line (br())

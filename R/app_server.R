@@ -22,6 +22,7 @@
 #' @importFrom ComplexHeatmap HeatmapAnnotation Heatmap
 #' @importFrom grid unit gpar
 #' @importFrom InteractiveComplexHeatmap makeInteractiveComplexHeatmap
+#' @importFrom utils combn
 #' @noRd
 app_server <- function( input, output, session ) {
   # Your application server logic 
@@ -80,7 +81,7 @@ app_server <- function( input, output, session ) {
   cyto_data1 = reactiveVal(database_cyto)
   
   observe({
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/database_updated_cyto.rds")
     
     if(file.exists(filepath) == TRUE){
       cyto_data1(readRDS(filepath))
@@ -140,8 +141,9 @@ app_server <- function( input, output, session ) {
     loaded_database_cyto(loaded_database_cyto1())
   })
 
+  
   #### update data if present
-  cyto_from_mod = mod_load_cyto_server("load_cyto_mod")
+  cyto_from_mod = mod_load_cyto_server("load_cyto_mod", data_type = "cyto")
   
   
   #check data correctly loaded
@@ -164,6 +166,8 @@ app_server <- function( input, output, session ) {
   observeEvent(input$update_cyto_bttn,{
     if(!is.null(cyto_from_mod())){
       loaded_database_cyto(update_database(old_data = loaded_database_cyto1(), new_data = cyto_from_mod()))
+      shinyWidgets::sendSweetAlert(title = "Merging completed!", type = "success",
+                                   text = "New data loaded! Click on 'Save database' if you want to store the changes.")
       showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
     }
   })
@@ -207,13 +211,13 @@ app_server <- function( input, output, session ) {
     
     file = readRDS(file = input$upload_file_cyto$datapath)
     loaded_database_cyto(file)
-    showNotification(tagList(icon("check"), HTML("&nbsp;Uploaded database loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+    showNotification(tagList(icon("check"), HTML("&nbsp;New database loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
   })
   
 
   
   
-  ##### SAVE Updated
+  ##### SAVE Updated #####
   
   observeEvent(input$save_update,{
     shinyWidgets::ask_confirmation(
@@ -221,8 +225,7 @@ app_server <- function( input, output, session ) {
       type = "warning",
       title = "Do you want to save and update the internal database?",
       text = h4("Be sure that everything works before update.
-      If you need to restore the original database, remove the file", strong("database_updated_cyto.rds"), " from this path: ",
-      paste0(base::system.file(package = "ADViSEBioassay"),"/data/"))
+      If you need to restore the original database, click on", strong("Restore Database."))
     )
   })
 
@@ -237,8 +240,18 @@ app_server <- function( input, output, session ) {
       if(dim(loaded_database_cyto1()$exp_list)[1] == dim(loaded_database_cyto()$exp_list)[1]){
         showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
       }else{
-        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
-        saveRDS(loaded_database_cyto(), file = filepath)
+        
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/")
+        if(dir.exists(filepath) == FALSE){
+          dir.create(filepath)
+        }
+        
+        saveRDS(loaded_database_cyto(), file = paste0(filepath,"database_updated_cyto.rds"))
+        
+        #versione per cronologia
+        filever = paste0(filepath,"ver_",Sys.Date(),".rds")
+        saveRDS(loaded_database_cyto(), file = filever)
+
         show_alert(
           title = "Upload completed!",
           text = "Please restart ADViSEBioassay to save the changes.",
@@ -257,9 +270,8 @@ app_server <- function( input, output, session ) {
     checkdatabase = tryCatch({cyto_from_mod()
       FALSE
     },shiny.silent.error = function(e) {TRUE})
-    
-    check_file = file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds"))
-    if(all(checkdatabase, check_file) == TRUE){return(TRUE)}
+    check_file = file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/database_updated_cyto.rds"))
+    if(TRUE %in% c(!checkdatabase, check_file)){return(TRUE)}
   })
   outputOptions(output, "checkupdated_cyto_fordownload", suspendWhenHidden = FALSE)
   
@@ -284,7 +296,78 @@ app_server <- function( input, output, session ) {
   
   #### remove updated cyto #####
   
+  
+  #modal restore
   observeEvent(input$remove_update_cyto,{
+    showModal(modalDialog(
+      title = "Restore database",
+      footer = modalButton("Close"),
+      size = "l",
+      fluidRow(
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Restore database to a previous version", solidHeader = TRUE,
+              column(10,offset = 1, selectInput("ver_databases", "Select a database", choices = "")),
+              conditionalPanel(
+                condition = "input.ver_databases != ''",
+                actionButton("load_version", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              )
+              )
+          
+          ),
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
+              br(),
+              actionButton("rest_to_original", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              br(),br(), br()
+              ))
+      )
+    ))
+  })
+  
+  
+  #### LOAD OLD VERSION
+  
+  observeEvent(input$remove_update_cyto,{
+    files = list.files(paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/"))
+    files = grep("ver_",files, value = TRUE)
+    updateSelectInput(session, "ver_databases", choices = files)
+  })
+  
+  
+  observeEvent(input$load_version,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmload_ver",
+      type = "warning",
+      title = "Do you want to load this version?",
+      text = h4("By clicking yes, this database version will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  
+  observeEvent(input$confirmload_ver,{
+    filepath_ver = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/",input$ver_databases)
+    
+    if(isTRUE(input$confirmload_ver)){
+      if(file.exists(filepath_ver)){    
+        file = readRDS(filepath_ver)
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/database_updated_cyto.rds")
+        saveRDS(file, file = filepath)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+      }
+    }
+  })
+  
+  
+  
+
+  
+  ##### RESTORE
+  observeEvent(input$rest_to_original,{
     shinyWidgets::ask_confirmation(
       inputId = "confirmremove_cyto",
       type = "warning",
@@ -296,20 +379,25 @@ app_server <- function( input, output, session ) {
   
   observeEvent(input$confirmremove_cyto,{
     
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_updated_cyto.rds")
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/")
+    listf = list.files(filepath)
+    #listf = listf[!grepl("database_cyto.rda", listf)]
+    file_to_rem = sapply(listf, function(x) paste0(filepath,x))
     
-    if(file.exists(filepath) == TRUE){
-      file.remove(filepath)
-      showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
-    }else{
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+    if(isTRUE(input$confirmremove_cyto)){
+      if(TRUE %in% file.exists(file_to_rem)){
+        file.remove(file_to_rem)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+      }
     }
+    
   })
   
   
 
   
-
   
   #load data
   data = reactive({
@@ -673,7 +761,7 @@ app_server <- function( input, output, session ) {
   observeEvent(values_comb_heat$comb,{
     req(values_comb_heat$comb)
     if(!is.null(values_comb_heat$comb)){
-      combin = combn(values_comb_heat$comb, 2, paste, collapse = '-')
+      combin = utils::combn(values_comb_heat$comb, 2, paste, collapse = '-')
       updateSelectInput(session, "subdose_heatmap", choices = combin)
     }
   })
@@ -836,7 +924,6 @@ app_server <- function( input, output, session ) {
       for (i in doses){
         ht_list = ht_list + make_heatmap(
           data = as.data.frame(data_heatmap()[[i]]),
-          filt_data_col = input$column_filt_heatmap,
           add_rowannot = input$selectannot_row,
           add_colannot = input$selectannot_col,
           title = paste(input$prod_filt_heatmap,i,"ug/mL"),
@@ -856,7 +943,6 @@ app_server <- function( input, output, session ) {
     }else if(input$dose_op_heatmap == "mean"){
       ht_list = make_heatmap(
         data = data_heatmap(),
-        filt_data_col = input$column_filt_heatmap,
         add_rowannot = input$selectannot_row,
         add_colannot = input$selectannot_col,
         title = paste(input$prod_filt_heatmap),
@@ -875,7 +961,6 @@ app_server <- function( input, output, session ) {
     }else{
       ht_list = make_heatmap(
         data = data_heatmap(),
-        filt_data_col = input$column_filt_heatmap,
         add_rowannot = input$selectannot_row,
         add_colannot = input$selectannot_col,
         title = paste(input$prod_filt_heatmap,input$subdose_heatmap,"ug/mL"),
@@ -984,10 +1069,11 @@ app_server <- function( input, output, session ) {
       level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
     }
     
-    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar), fill = factor(Dose)))+
+    ### Hmisc serve per mean_sdl. è esporato da ggplot2 ma richiede il pacchetto
+    plot = ggplot(data_plot_not, aes(x = factor(Product, levels = level_order), y = !!sym(input$typeeval_bar), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +
-      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      stat_summary(fun.data= ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
@@ -1052,7 +1138,7 @@ app_server <- function( input, output, session ) {
     plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar( position = position_dodge(), stat = "summary",fun = "mean") +
-      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      stat_summary(fun.data=ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar2) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
@@ -1084,9 +1170,19 @@ app_server <- function( input, output, session ) {
   
 ######## D1 ########
   
+  D1_data1 = reactiveVal(database_D1)
+  
+  observe({
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/database_updated_D1.rds")
+    
+    if(file.exists(filepath) == TRUE){
+      D1_data1(readRDS(filepath))
+    }
+  })
+  
   
   output$valbox_D1 = renderUI({
-    if(exists(" ") == FALSE){
+    if(is.null(D1_data1())){
       box(width = 12, background = "yellow",
           fluidPage(
             fluidRow(
@@ -1099,7 +1195,7 @@ app_server <- function( input, output, session ) {
           )
       )
     }else{
-      n_az = database_D1$mydataset$Experiment_id %>% unique() %>% length()
+      n_az = D1_data1()$mydataset$Experiment_id %>% unique() %>% length()
       box(width = 12, background = "green",
           fluidPage(
             fluidRow(
@@ -1115,168 +1211,312 @@ app_server <- function( input, output, session ) {
   })
   
   
-  ##### EXP list #####
-  exp_list_to_edit_D1 = reactive({
-    req(input$exp_list_file_D1)
-    ext <- tools::file_ext(input$exp_list_file_D1$name)
-    if(ext != "xlsx"){
-      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
-    }
-    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
-    showNotification(tagList(icon("check"), HTML("&nbsp;Experiment list file loaded.")), type = "message")
-    readxl::read_xlsx(input$exp_list_file_D1$datapath) %>% janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
-  })
   
   
-  exp_list_D1 = mod_edit_data_server("edit_exp_list_D1", data_input = exp_list_to_edit_D1, maxrows = 200)
-  
-  #check data correctly loaded
-  output$check_explist_D1 = reactive(
-    return(is.null(exp_list_D1()))
-  )
-  outputOptions(output, "check_explist_D1", suspendWhenHidden = FALSE)
-  
-  
-  #### Target file ####
-  
-  target_to_edit_D1 = reactive({
-    req(input$target_file_D1, exp_list_D1())
-    ext <- tools::file_ext(input$target_file_D1$name)
-    if(ext != "xlsx"){
-      shinyWidgets::show_alert("Invalid file!", "Please upload a .xlsx file", type = "error")
-    }
-    validate(need(ext == "xlsx", "Invalid file! Please upload a .xlsx file"))
-    Target_file = readxl::read_xlsx(input$target_file_D1$datapath, na = "NA") %>% 
-      janitor::remove_empty(which = c("rows", "cols"), quiet = FALSE)
-    
-    #filter target based on exp_list
-    Target_file = Target_file %>% dplyr::filter(Experiment_id %in% exp_list_D1()$Experiment_id)
-
-    to_rem = NULL
-    for(i in unique(Target_file$Experiment_id)){
-      expid = Target_file %>% dplyr::filter(Experiment_id == i)
-      
-      #in realtà support_type non è presente
-      if("Support_type" %in% colnames(expid)){
-        #check id with support type
-        num_supp = unique(expid$Support_type)
-        if(length(num_supp) > 1){
-          print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
-          showNotification(duration = 8, tagList(icon("exclamation-circle"),
-                                                 HTML("There are more than one Support type (",num_supp, ") for the", i, "and will be removed. Check the target file.")), type = "warning")
-          to_rem = c(to_rem, i)
-        }
-      }
-
-      
-      #check well numbers in the plate
-      if(length(expid$Well) != 96){
-        print(paste0("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file."))
-        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                               HTML("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file.")), type = "warning")
-        to_rem = c(to_rem, i)
-      }
-      
-      #check well replicates
-      if(length(unique(expid$Well)) != length(expid$Well)){
-        dup_wells = expid[duplicated(expid$Well),]$Well
-        print(paste0("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file."))
-        showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                               HTML("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file.")), type = "warning")
-        to_rem = c(to_rem, i)
-      }
-    }
-    
-    if(is.null(to_rem)){
-      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded.")), type = "message")
-      Target_file
+  #carica il file
+  loaded_database_D1_pre = eventReactive(input$loaddatabase,{
+    if(!is.null(D1_data1())){
+      showNotification(tagList(icon("info"), HTML("&nbsp;D1 data loading...")), type = "default")
+      return(D1_data1())
     }else{
-      showNotification(tagList(icon("check"), HTML("&nbsp;Target file loaded. Some experiments are removed.")), type = "message")
-      Target_file %>% dplyr::filter(!(Experiment_id %in% unique(to_rem)))
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;D1 data not loaded")), type = "error")
+      return(NULL)
+    }
+  })
+  
+  observeEvent(loaded_database_D1_pre(),{
+    if(!is.null(loaded_database_D1_pre())){
+      showNotification(tagList(icon("check"), HTML("&nbsp;D1 data loaded!")), type = "message")
+    }
+  })
+  
+  
+  loaded_database_D1 = reactiveVal()
+  
+  observeEvent(loaded_database_D1_pre(),{
+    loaded_database_D1(loaded_database_D1_pre())
+  })
+  
+  
+
+  
+  
+  #### update data D1 if present ####
+  D1_from_mod = mod_load_cyto_server("load_D1_mod", data_type = "D1")
+  
+  
+  #check data correctly loaded
+  output$check_data_updated_D1 = reactive(
+    return(is.null(D1_from_mod()))
+  )
+  outputOptions(output, "check_data_updated_D1", suspendWhenHidden = FALSE)
+  
+  
+  output$newdata_D1_DT = renderDT({
+    req(D1_from_mod())
+    if(input$summ_viewtable_updated_D1 == TRUE){
+      D1_from_mod()$mydataset %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }else{
+      D1_from_mod()$myprocesseddata %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }
+  },options = list(scrollX = TRUE))
+  
+  
+  observeEvent(input$update_D1_bttn,{
+    if(!is.null(D1_from_mod())){
+      loaded_database_D1(update_database(old_data = loaded_database_D1_pre(), new_data = D1_from_mod()))
+      showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+    }
+  })
+  
+  
+  
+  ##### Upload updated
+  
+  #Upload
+  observeEvent(input$upload_updated_D1,{
+    showModal(modalDialog(
+      title = "Upload an existing database (.rds)",
+      footer = modalButton("Close"),
+      fluidRow(
+        column(8,fileInput("upload_file_D1", "Upload a database (.rds)", accept = ".rds")),
+        conditionalPanel(
+          condition = "output.check_fileuploaded_D1 == true",
+          column(3,br(),actionButton("load_upload_file_D1", "Load!", icon("rocket"),style='padding:10px; font-size:140%; font-weight: bold;'))
+        )
+      )
+    ))
+  })
+  
+  
+  output$check_fileuploaded_D1 <- reactive({
+    return(!is.null(input$upload_file_D1))
+  }) 
+  outputOptions(output, 'check_fileuploaded_D1', suspendWhenHidden=FALSE)
+  
+  
+  
+  
+  #import 
+  observeEvent(input$load_upload_file_D1,{
+    req(input$upload_file_D1)
+    ext <- tools::file_ext(input$upload_file_D1$name)
+    if(ext != "rds"){
+      shinyWidgets::show_alert("Invalid file!", "Please upload a .rds file", type = "error")
+    }
+    validate(need(ext == "rds", "Invalid file! Please upload a .rds file"))
+    
+    file = readRDS(file = input$upload_file_D1$datapath)
+    loaded_database_D1(file)
+    showNotification(tagList(icon("check"), HTML("&nbsp;New database loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+  })
+  
+  
+  
+
+  
+  ##### SAVE Updated #####
+  
+  observeEvent(input$save_update_D1,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmsave_D1",
+      type = "warning",
+      title = "Do you want to save and update the internal database?",
+      text = h4("Be sure that everything works before update.
+      If you need to restore the original database, click on", strong("Restore Database."))
+    )
+  })
+  
+  
+  observeEvent(input$confirmsave_D1,{
+    checkdatabase = tryCatch({loaded_database_D1()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    
+    if(input$confirmsave_D1 == TRUE && checkdatabase == FALSE){
+      if(dim(loaded_database_D1_pre()$exp_list)[1] == dim(loaded_database_D1()$exp_list)[1]){
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+      }else{
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/")
+        if(dir.exists(filepath) == FALSE){
+          dir.create(filepath)
+        }
+        
+        saveRDS(loaded_database_D1(), file = paste0(filepath,"database_updated_D1.rds"))
+        
+        #versione per cronologia
+        filever = paste0(filepath,"ver_",Sys.Date(),".rds")
+        saveRDS(loaded_database_D1(), file = filever)
+        
+        show_alert(
+          title = "Upload completed!",
+          text = "Please restart ADViSEBioassay to save the changes.",
+          type = "success"
+        ) 
+      }
+    }
+  })
+  
+  
+  
+  
+  ##### download updated D1 ######
+  
+  #check all data correctly loaded. If TRUE -> error.
+  output$checkupdated_D1_fordownload = reactive({
+    checkdatabase = tryCatch({D1_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    check_file = file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/database_updated_D1.rds"))
+    if(TRUE %in% c(!checkdatabase, check_file)){return(TRUE)}
+  })
+  outputOptions(output, "checkupdated_D1_fordownload", suspendWhenHidden = FALSE)
+  
+  
+  
+  #### Download handler for the download button
+  output$download_updated_D1 <- downloadHandler(
+    #put the file name with also the file extension
+    filename = function() {
+      paste0("updated_D1_", Sys.Date(), ".rds")
+    },
+    
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+      saveRDS(loaded_database_D1(), file)
+    }
+  )
+  
+  
+  
+  
+  #### remove updated D1 #####
+  
+  
+  #modal restore
+  observeEvent(input$remove_update_D1,{
+    showModal(modalDialog(
+      title = "Restore database",
+      footer = modalButton("Close"),
+      size = "l",
+      fluidRow(
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Restore database to a previous version", solidHeader = TRUE,
+              column(10,offset = 1, selectInput("ver_databases_D1", "Select a database", choices = "")),
+              conditionalPanel(
+                condition = "input.ver_databases_D1 != ''",
+                actionButton("load_version_D1", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              )
+          )
+          
+        ),
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
+              br(),
+              actionButton("rest_to_original_D1", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              br(),br(), br()
+          ))
+      )
+    ))
+  })
+  
+  
+  
+  
+  #### LOAD OLD VERSION
+  
+  observeEvent(input$remove_update_D1,{
+    files = list.files(paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/"))
+    files = grep("ver_",files, value = TRUE)
+    updateSelectInput(session, "ver_databases_D1", choices = files)
+  })
+  
+  
+  observeEvent(input$load_version_D1,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmload_ver_D1",
+      type = "warning",
+      title = "Do you want to load this version?",
+      text = h4("By clicking yes, this database version will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  observeEvent(input$confirmload_ver_D1,{
+    filepath_ver = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/",input$ver_databases_D1)
+    
+    if(isTRUE(input$confirmload_ver_D1)){
+      if(file.exists(filepath_ver)){    
+        file = readRDS(filepath_ver)
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/database_updated_D1.rds")
+        saveRDS(file, file = filepath)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+      }
+    }
+  })
+  
+  
+  
+  
+  ##### RESTORE
+  observeEvent(input$rest_to_original_D1,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmremove_D1",
+      type = "warning",
+      title = "Do you want to restore the internal database?",
+      text = h4("By clicking yes, the original database will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  observeEvent(input$confirmremove_D1,{
+    
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/")
+    listf = list.files(filepath)
+    #listf = listf[!grepl("database_D1.rda", listf)]
+    file_to_rem = sapply(listf, function(x) paste0(filepath,x))
+    
+    if(isTRUE(input$confirmremove_D1)){
+      if(TRUE %in% file.exists(file_to_rem)){
+        file.remove(file_to_rem)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+      }
     }
     
   })
   
   
-  target_D1 = mod_edit_data_server("edit_target_D1", data_input = target_to_edit_D1, maxrows = 150)
-  
-  #check data correctly loaded
-  output$check_target_D1 = reactive(
-    return(is.null(target_D1()))
-  )
-  outputOptions(output, "check_target_D1", suspendWhenHidden = FALSE)
   
   
   
-  #### eval cytotox ####
-  data_notsumm_D1 = eventReactive(input$gocyto_D1,{
-    req(target_D1(), exp_list_D1())
-    
-    check_files = paste0(exp_list_D1()$Path, exp_list_D1()$File)
-    
-    file_list <- unlist(strsplit(exp_list_D1()$File, split = ","))
-
-    showNotification(tagList(icon("info"), HTML("&nbsp;Number of files to be imported: ", length(file_list))), type = "default")
-    message(paste0("Number of files to be imported: ", length(file_list)))
-    
-    message(paste0("Name of files to be imported: ", "\n"))
-    for (k in 1:length(file_list)){
-      message(paste0(file_list[k]))
-    }
-    
-    if (!all(file_list %in% list.files(unique(exp_list_D1()$Path)))){
-      file_wrong = file_list[!file_list %in% list.files(unique(exp_list_D1()$Path))]
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
-      message("At least one file is missing or reported with the wrong name! Check",file_wrong)
-      return(NULL)
-    } else {
-      
-
-      
-      processed.experiment = list()
-      expid = exp_list_D1()$Experiment_id
-      
-      percentage <- 0
-      
-      withProgress(message = "Reading data...", value=0, {
-        processed.experiment = lapply(expid, function(x){
-          percentage <<- percentage + 1/length(expid)*100
-          incProgress(1/length(expid), detail = paste0("Progress: ",round(percentage,0), " %"))
-          print(paste("Loading experiment",x,sep =" "))  
-          
-          file_explist = dplyr::filter(exp_list_D1(), Experiment_id == x)
-          file_target = dplyr::filter(target_D1(), Experiment_id == x)
-          read_D1(file_explist, file_target, filter.na = "Product")
-        })
-      })
-      
-      names(processed.experiment) = expid
-      myprocesseddata_D1 = tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
-      
-
-      col_to_check = c("Model_type","Product_Family")
-      
-      err = 0
-      for(i in col_to_check){
-        if(TRUE %in% is.na(myprocesseddata_D1[,i])){
-          message(paste0("There are some NA values inside",i,". Check the target file"))
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;There are some NA values inside",i,". Check the target file")), type = "error")
-          err = err+1
-        }
-      }
-      if(err == 0){
-        showNotification(tagList(icon("check"), HTML("&nbsp;Analysis completed!")), type = "message")
-        return(myprocesseddata_D1)
-      }else{return(NULL)}
-      
-      
-    }
+  
+  
+  
+  #load data
+  data_notsumm_D1 = reactive({
+    req(loaded_database_D1())
+    loaded_database_D1()$myprocesseddata
   })
   
   data_D1 = reactive({
-    req(data_notsumm_D1())
-    summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
+    req(loaded_database_D1())
+    loaded_database_D1()$mydataset
+    #summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
   })
+  
+  
+  exp_list_D1 = reactive({
+    req(loaded_database_D1())
+    loaded_database_D1()$exp_list
+  })
+  
   
   #check data correctly loaded
   output$check_data_D1 = reactive(
@@ -1386,10 +1626,17 @@ app_server <- function( input, output, session ) {
     updateSelectInput(session, "family_filt_bar_D1", choices = unique(family))
   })
   
+  #purification
+  observeEvent(c(input$model_filt_bar_D1,input$family_filt_bar_D1),{
+    purif = dplyr::filter(data_D1(), Model_type == input$model_filt_bar_D1 & Product_Family == input$family_filt_bar_D1)
+    updateSelectInput(session, "purif_filt_bar_D1", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
+  
   
   output$check_multID_bar1_D1 = reactive({
     req(data_notsumm_D1())
-    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1)
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), 
+                                    Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1 & Purification == input$purif_filt_bar_D1)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
   outputOptions(output, "check_multID_bar1_D1", suspendWhenHidden = FALSE)
@@ -1398,7 +1645,8 @@ app_server <- function( input, output, session ) {
   output$barplot_D1 = plotly::renderPlotly({
     req(data_notsumm_D1())
     
-    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1)
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), 
+                                    Product_Family == input$family_filt_bar_D1 & Model_type == input$model_filt_bar_D1 & Purification == input$purif_filt_bar_D1)
     cnts = data_notsumm_D1() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
     
@@ -1412,7 +1660,7 @@ app_server <- function( input, output, session ) {
     plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar_D1), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
-      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      stat_summary(fun.data = ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar_D1) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
@@ -1443,11 +1691,16 @@ app_server <- function( input, output, session ) {
     updateSelectInput(session, "family_filt_bar2_D1", choices = unique(family))
   })
   
-  
+  #purification
+  observeEvent(c(input$model_filt_bar2_D1,input$family_filt_bar2_D1),{
+    purif = dplyr::filter(data_D1(), Model_type == input$model_filt_bar2_D1 & Product_Family == input$family_filt_bar2_D1)
+    updateSelectInput(session, "purif_filt_bar2_D1", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
   
   output$check_multID_bar2_D1 = reactive({
     req(data_notsumm_D1())
-    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1)
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), 
+                                    Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1 & Purification == input$purif_filt_bar2_D1)
     ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
   })
   outputOptions(output, "check_multID_bar2_D1", suspendWhenHidden = FALSE)
@@ -1456,7 +1709,8 @@ app_server <- function( input, output, session ) {
   output$barplot2_D1 = plotly::renderPlotly({
     req(data_notsumm_D1())
     
-    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1)
+    data_plot_not1 =  dplyr::filter(data_notsumm_D1(), 
+                                    Product_Family == input$family_filt_bar2_D1 & Model_type == input$model_filt_bar2_D1 & Purification == input$purif_filt_bar2_D1)
     cnts = data_notsumm_D1() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
     data_plot_not = rbind(data_plot_not1, cnts)
 
@@ -1469,7 +1723,7 @@ app_server <- function( input, output, session ) {
     plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2_D1), fill = factor(Dose)))+
       coord_cartesian(ylim=c(0, 100)) + 
       geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
-      stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      stat_summary(fun.data = ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
       xlab("Product") + ggtitle(input$family_filt_bar2_D1) + labs(fill = "Dose") +
       theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
     
@@ -1544,7 +1798,7 @@ app_server <- function( input, output, session ) {
   observeEvent(values_comb_heat_D1$comb,{
     req(values_comb_heat_D1$comb)
     if(!is.null(values_comb_heat_D1$comb)){
-      combin = combn(values_comb_heat_D1$comb, 2, paste, collapse = '-')
+      combin = utils::combn(values_comb_heat_D1$comb, 2, paste, collapse = '-')
       updateSelectInput(session, "subdose_heatmap_D1", choices = combin)
     }
   })

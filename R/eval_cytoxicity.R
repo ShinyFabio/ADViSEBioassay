@@ -2,8 +2,11 @@
 #'
 #' @description \code{eval_cytoxicity} draw multiple break line (br())
 #'
-#' @param X X
-#'
+#' @param X data
+#' @param ref Column that contains the information about background and CTRL. By default "Product"
+#' @param background The value inside the Product column that refers to the background. By default BACKGROUND
+#' @param CTRL The value inside the Product column that refers to the control. By default CTRL
+#' 
 #' @importFrom dplyr mutate
 #'
 

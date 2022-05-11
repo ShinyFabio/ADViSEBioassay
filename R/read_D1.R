@@ -43,9 +43,9 @@ read_D1 = function(file_explist, file_target, filter.na = "Product"){
     #check well number
     if(length(mydata$Well) != 96){
       message(paste("In",ifile, "there are", length(mydata$Well), "wells instead of 96."))
-      if(shiny::isRunning()){
-        showNotification(tagList(icon("info"), HTML("&nbsp;In",ifile, "there are", length(mydata$Well), "wells instead of 96.")), type = "default")
-      }
+      # if(shiny::isRunning()){
+      #   showNotification(tagList(icon("info"), HTML("&nbsp;In",ifile, "there are", length(mydata$Well), "wells instead of 96.")), type = "default")
+      # }
     }
     
   #### "MACS_QUANT_16" ####

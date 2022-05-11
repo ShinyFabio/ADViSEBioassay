@@ -6,7 +6,6 @@
 \usage{
 make_heatmap(
   data,
-  filt_data_col = "All",
   add_rowannot = "Model_Family",
   add_colannot = NULL,
   title = "CBC150",
@@ -34,6 +33,8 @@ make_heatmap(
 
 \item{title}{A label for the column (i.e. "Lipids").}
 
+\item{order_data}{Boolean. Set to TRUE if you want to order.}
+
 \item{row_dend}{Boolean. Render dendogram on rows (TRUE or FALSE).}
 
 \item{row_nclust}{Numeric. Number of cluster in the row dendrogram.}
@@ -52,7 +53,11 @@ make_heatmap(
 
 \item{color_scale}{Color scale for the cells. By default is circlize::colorRamp2(c(0, 100), c("white", "blue")).}
 
-\item{scale_data}{Scaling data option. Data can be scaled (using scale()) by row ("row"), by column ("column") or not scaled ("none"). The result is the z-score.}
+\item{add_values}{Boolean. Set to TRUE if you want to show cell numbers.}
+
+\item{thresh_values}{Numeric. The threshold for the cell number.}
+
+\item{typeeval_heat}{String. The column used for the heatmap. By default "Cytotoxicity.average".}
 }
 \description{
 This function render a Heatmap using ComplexHeatmap package.

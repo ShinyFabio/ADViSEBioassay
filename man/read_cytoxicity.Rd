@@ -16,7 +16,21 @@ read_cytoxicity(
 )
 }
 \arguments{
-\item{X}{X}
+\item{ifile}{File name to be read. (eg. "P 436_490 nm.xlsx")}
+
+\item{path}{The path where is the file.}
+
+\item{instrument}{Instrument used for that file. Allowed "EZ_READ_2000" or "4300_CHROMATE_PLATE_READER".}
+
+\item{scan}{If the file is read in Single or Double scan.}
+
+\item{wave}{The wavelength (eg. A490)}
+
+\item{sample.anno}{Relative target file of that experiment}
+
+\item{sep}{Separator. By default ","}
+
+\item{filter.na}{The column where apply the NA filtering.}
 }
 \description{
 \code{read_cytoxicity} draw multiple break line (br())

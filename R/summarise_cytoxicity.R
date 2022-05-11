@@ -9,6 +9,7 @@
 #'
 #' @importFrom dplyr group_by summarise ungroup across
 #' @importFrom tidyr replace_na
+#' @importFrom stats sd
 #'
 
 
@@ -22,13 +23,13 @@ summarise_cytoxicity = function(X, group , method = "cyto"){
         Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
         Cytotoxicity.nreps =n(),
         Vitality.average = mean(Vitality, na.rm=TRUE),
-        CV = sd(Corrected_value,na.rm = TRUE)/mean(Corrected_value, na.rm = TRUE)*100,
+        CV = sd(Corrected_value,na.rm = TRUE)/mean(Corrected_value, na.rm = TRUE),
         Corrected_value = mean(Corrected_value, na.rm = TRUE)
       ) %>% dplyr::ungroup()
     #X$CV = tidyr::replace_na(X$CV, 0)
   }else if(method == "d1"){
     
-    fun_CV = function(x){sd(x, na.rm = TRUE)/mean(x, na.rm = TRUE)*100}
+    fun_CV = function(x){sd(x, na.rm = TRUE)/mean(x, na.rm = TRUE)}
     
     
     X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%

@@ -1,6 +1,6 @@
 Package: ADViSEBioassay
 Title: ADViSEBioassay shiny app
-Version: 0.1.0
+Version: 0.7.0
 Authors@R: person('Fabio', 'Della Rocca', email = 'fabiodellarocca94@gmail.com', role = c('cre', 'aut'))
 Description: PKG_DESC.
 License: MIT + file LICENSE
@@ -10,11 +10,10 @@ Imports:
     golem (>= 0.3.1),
     shiny (>= 1.7.1),
     shinyWidgets,
-    bs4Dash,
+    shinydashboard,
+    dashboardthemes,
     ggplot2,
     plotly,
-    Hmisc,
-    BiocManager,
     tidyr,
     ComplexHeatmap,
     InteractiveComplexHeatmap,
@@ -27,14 +26,25 @@ Imports:
     grDevices,
     RColorBrewer,
     circlize,
-    ComplexHeatmap,
-    InteractiveComplexHeatmap,
     fmsb,
     openxlsx,
-    thematic
-biocViews:
-    ComplexHeatmap,
-    InteractiveComplexHeatmap
+    DataEditR,
+    readr,
+    shinyBS,
+    shinyjs,
+    tibble,
+    htmltools,
+    data.table,
+    cicerone,
+    bsplus,
+    miniUI,
+    scales,
+    shinycssloaders
+Suggestes:
+    Hmisc
+Remotes: 
+    github::jokergoo/ComplexHeatmap,
+    github::jokergoo/InteractiveComplexHeatmap
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.2
