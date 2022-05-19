@@ -4,7 +4,12 @@
 \alias{summarise_cytoxicity}
 \title{summarise_cytoxicity}
 \usage{
-summarise_cytoxicity(X, group, method = "cyto")
+summarise_cytoxicity(
+  X,
+  group,
+  method = "cyto",
+  markers_name = c("CD80", "CD40", "MHC-II")
+)
 }
 \arguments{
 \item{X}{data to summarise.}

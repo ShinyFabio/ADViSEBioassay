@@ -56,15 +56,22 @@ mod_spiderplot_ui <- function(id){
 #' spiderplot Server Functions
 #'
 #' @noRd 
-mod_spiderplot_server <- function(id, data){
+mod_spiderplot_server <- function(id, data, type_data){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
     
+
     
     observeEvent(data(),{
       updateSelectInput(session, "model_filt_spid", choices = unique(data()$Model_type))
       updateSelectInput(session, "model_filt_spid2", choices = unique(data()$Model_type))
       updateSelectInput(session, "model_filt_spid3", choices = unique(data()$Model_type))
+      
+      
+      if(type_data == "D1"){
+        marker = colnames(dplyr::select(data(), where(is.double),-dplyr::starts_with(c("Cyto", "Vita")),-Dose, -dplyr::ends_with(".CV")))
+        updateSelectInput(session, "typeeval_spid", choices = c("Cytotoxicity", "Vitality", marker))
+      }
     })
     
     
@@ -157,7 +164,8 @@ mod_spiderplot_server <- function(id, data){
       # validate(need(input$purif_filt_spid, "Select something in the Purification filtering."))
       
       #measure type
-      type_meas = ifelse(input$typeeval_spid == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+      type_meas = ifelse(input$typeeval_spid == "Cytotoxicity", "Cytotoxicity.average", 
+                         ifelse(input$typeeval_spid == "Vitality", "Vitality.average", input$typeeval_spid))
       
       data_plot1 = data() %>% dplyr::filter(Product_Family == input$family_filt_spid & Model_type == input$model_filt_spid) %>% 
         dplyr::filter(Dose == input$dose_filt_spid) %>% dplyr::filter(Purification == input$purif_filt_spid) %>%
@@ -299,8 +307,23 @@ mod_spiderplot_server <- function(id, data){
         
       }
       
-      lab =  c(0, 20, 40, 60, 80, 100)
-      g2 = rbind("Max" = 100, "Min" = 0, radardata)
+      
+      if(input$typeeval_spid == "Cytotoxicity" || input$typeeval_spid == "Vitality"){
+        lab =  c(0, 20, 40, 60, 80, 100)
+        g2 = rbind("Max" = 100, "Min" = 0, radardata)
+      }else{
+        
+        max = round(max(radardata))
+        
+        while(max%%5 != 0){max = max+1}
+
+        max = round(max/10^(nchar(max)-1)) * 10^(nchar(max)-1)
+        
+        lab = c(0, max*2/10, max*4/10, max*6/10, max*8/10, max)
+        g2 = rbind("Max" = max, "Min" = 0, radardata)
+        
+      }
+
       
       create_beautiful_radarchart(g2, caxislabels = lab, color = grDevices::hcl.colors(3, palette = "Dynamic"),
                                   title = title_spid, x_legend = 1, y_legend = 1.3)

@@ -13,11 +13,11 @@
 #'
 
 
-summarise_cytoxicity = function(X, group , method = "cyto"){
+summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD80", "CD40", "MHC-II")){
   
   if (method == "cyto"){
     
-    X<- X %>% dplyr::group_by(dplyr::across(group)) %>%
+    X<- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
       dplyr::summarise(
         Cytotoxicity.average = mean(Cytotoxicity, na.rm=TRUE),
         Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
@@ -31,22 +31,19 @@ summarise_cytoxicity = function(X, group , method = "cyto"){
     
     fun_CV = function(x){sd(x, na.rm = TRUE)/mean(x, na.rm = TRUE)}
     
-    
-    X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
+      X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
       dplyr::summarise(
         Cytotoxicity.average = mean(Cytotoxicity, na.rm=TRUE),
         Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
         Cytotoxicity.nreps =n(),
         Vitality.average = mean(Vitality, na.rm=TRUE),
         Cytotoxicity.CV = fun_CV(Cytotoxicity),
-        Vitality.CV = fun_CV(Vitality)
-      ) %>% dplyr::ungroup()
-    
-    
-    # X <- X %>% dplyr::group_by(dplyr::across(group)) %>%
-    #   dplyr::summarise(dplyr::across(where(is.double), list(mean = mean, sd = sd, CV = fun_CV))) %>%
-    #   dplyr::ungroup() #%>% dplyr::mutate(dplyr::across(.cols = ends_with("_CV"), ~tidyr::replace_na(.x, 0)))
-    # 
+        Vitality.CV = fun_CV(Vitality),
+        mean = across(dplyr::all_of(markers_name), ~mean(.x, na.rm = TRUE)),
+        across(dplyr::all_of(markers_name), ~fun_CV(.x))
+      ) %>% dplyr::ungroup() %>% dplyr::rename_with(.cols = markers_name, .fn = ~paste0(.x,".CV")) %>% 
+        tidyr::unnest_wider(mean)
+
   }else{
     return(NULL)
     message("wrong method in summarise_cytotoxicity")

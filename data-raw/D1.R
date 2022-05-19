@@ -95,7 +95,13 @@ if (!all(file_list %in% list.files(unique(Experiment_list$Path)))){
 
 ### summarise cyto
 
-mydataset = summarise_cytoxicity(myprocesseddata_D1, group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
+mydataset = summarise_cytoxicity(myprocesseddata_D1, 
+                                 group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), 
+                                 method = "d1",
+                                 markers_name = unique(c(stringr::str_split(unique(Experiment_list$Markers), pattern = ",",simplify = T)))
+                                 )
+
+### !!!!!!!!!!! markers name da testare se cambiano i markers !!!!!!!!!!!!!!!!!
 
 database_D1 = list(myprocesseddata = myprocesseddata_D1,mydataset = mydataset, exp_list = Experiment_list)
 usethis::use_data(database_D1, overwrite = TRUE)

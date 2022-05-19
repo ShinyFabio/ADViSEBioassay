@@ -91,6 +91,15 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
   moduleServer( id, function(input, output, session){
     ns <- session$ns
     
+    
+    observeEvent(data(),{
+      if(type_data == "D1"){
+        marker = colnames(dplyr::select(data(), where(is.double),-dplyr::starts_with(c("Cyto", "Vita")),-Dose, -dplyr::ends_with(".CV")))
+        updateSelectInput(session, "typeeval_bubb", choices = c("Cytotoxicity", "Vitality", marker))
+      }
+    })
+    
+    
     prod_total = reactive({
       req(data())
       data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
@@ -166,11 +175,14 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
     data_bubble = reactive({
       req(prod_total())
       
+      
       type_cv = ifelse(type_data == "cyto", input$varsize_bubb, paste0(input$typeeval_bubb, ".CV"))
       
       #measure type
-      type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+      type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", 
+                         ifelse(input$typeeval_bubb == "Vitality", "Vitality.average", input$typeeval_bubb))
       
+
       CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_bubb) %>% 
         dplyr::filter(Purification == input$purif_filt_bubb)
       
@@ -274,7 +286,8 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
     
     output$bubbleplot = renderPlotly({
       req(data_bubble())
-      type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+      type_meas = ifelse(input$typeeval_bubb == "Cytotoxicity", "Cytotoxicity.average", 
+                         ifelse(input$typeeval_bubb == "Vitality", "Vitality.average", input$typeeval_bubb))
       
       type_cv = ifelse(type_data == "cyto", input$varsize_bubb, paste0(input$typeeval_bubb, ".CV"))
       ord = order_data(data_bubble(),as_factor = TRUE)
@@ -315,11 +328,18 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       if(input$dose_op_bubb == "filter"){
         temp = temp + facet_wrap(~Dose)
       }
-      if(input$dose_op_bubb == "subtract"){
-        temp = temp + scale_color_gradient2(low = "green", mid = "white", high = "red", limits = c(-100,100))
+      
+      if(input$typeeval_bubb == "Cytotoxicity" || input$typeeval_bubb == "Vitality"){
+        if(input$dose_op_bubb == "subtract"){
+          temp = temp + scale_color_gradient2(low = "green", mid = "white", high = "red", limits = c(-100,100))
+        }else{
+          temp = temp + scale_color_gradient(low = "white", high = "blue", limits = c(0,100))
+        }
       }else{
-        temp = temp + scale_color_gradient(low = "white", high = "blue", limits = c(0,100))
+        temp = temp + scale_color_gradient(low = "white", high = "blue")
       }
+      
+      
       
       plotly::ggplotly(temp)
       

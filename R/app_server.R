@@ -219,6 +219,18 @@ app_server <- function( input, output, session ) {
   
   ##### SAVE Updated #####
   
+  #check if something new is loaded otherwhise don't display the save button
+  output$check_ifsave_cyto = reactive({
+    checkdatabase = tryCatch({cyto_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    if(TRUE %in% c(!checkdatabase, input$load_upload_file_cyto > 0)){return(TRUE)}
+  })
+  outputOptions(output, "check_ifsave_cyto", suspendWhenHidden = FALSE)
+  
+  
+  
   observeEvent(input$save_update,{
     shinyWidgets::ask_confirmation(
       inputId = "confirmsave_cyto",
@@ -265,7 +277,7 @@ app_server <- function( input, output, session ) {
   
   ##### download updated cyto ######
   
-  #check all data correctly loaded. If TRUE -> error.
+  #check all data correctly loaded. If FALSE -> error.
   output$checkupdated_cyto_fordownload = reactive({
     checkdatabase = tryCatch({cyto_from_mod()
       FALSE
@@ -503,7 +515,7 @@ app_server <- function( input, output, session ) {
 
   output$prodfam_barplot = plotly::renderPlotly({
     req(data())
-    data_filt = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+    data_filt = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
     prod_table =  as.data.frame(table(data_filt$Product_Family))
     colnames(prod_table)[1] = "Product_Family"
     
@@ -673,6 +685,53 @@ app_server <- function( input, output, session ) {
   observeEvent(heat_informative(),{
     InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heat_informative(), heatmap_id  = "heatmap_inform_output")
   })
+  
+  
+  
+  
+  #### Query cyto ####
+  
+  
+  dataquery_cyto = reactive({
+    req(data())
+    data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+  })
+  
+  
+  observeEvent(dataquery_cyto(),{
+    updateSelectInput(session, "filtmod_query_cyto", choices = c("All",unique(dataquery_cyto()$Model_type)))
+    
+    cols = dataquery_cyto() %>% dplyr::select(where(is.double)) %>% dplyr::select(-Dose) %>% colnames()
+    updateSelectInput(session, "selcol_query_cyto", choices = cols)
+  })
+  
+  query_cyto = reactive({
+    req(dataquery_cyto())
+    
+    validate(need(input$filtmod_query_cyto, "Select something in the Model_type filtering."))
+    if("All" %in% input$filtmod_query_cyto){
+      data = dataquery_cyto()
+    }else{
+      data = dataquery_cyto() %>% dplyr::filter(Model_type %in% input$filtmod_query_cyto)
+    }
+    
+    temp = lapply(unique(data$Model_type), function(x){
+      operation_filtering(data = dplyr::filter(data, Model_type == x), 
+                          column = input$selcol_query_cyto,
+                          operator = input$selop_query_cyto,
+                          value = input$thresh_query_cyto)
+    })
+
+    #convert to dataframe
+    data.frame(Reduce(rbind, temp))
+    
+  })
+  
+  output$querydt_cyto = renderDT({
+    req(query_cyto())
+    query_cyto()
+  })
+  
   
   
   ##### bubbleplot ####
@@ -1165,7 +1224,7 @@ app_server <- function( input, output, session ) {
   
   #### Spider plot ####
   
-  mod_spiderplot_server("spiderplot_cyto", data = data)
+  mod_spiderplot_server("spiderplot_cyto", data = data, type_data = "cyto")
 
   
 ######## D1 ########
@@ -1317,6 +1376,18 @@ app_server <- function( input, output, session ) {
   
   ##### SAVE Updated #####
   
+  #check if something new is loaded otherwhise don't display the save button
+  output$check_ifsave_D1 = reactive({
+    checkdatabase = tryCatch({D1_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    if(TRUE %in% c(!checkdatabase, input$load_upload_file_D1 > 0)){return(TRUE)}
+  })
+  outputOptions(output, "check_ifsave_D1", suspendWhenHidden = FALSE)
+  
+  
+  
   observeEvent(input$save_update_D1,{
     shinyWidgets::ask_confirmation(
       inputId = "confirmsave_D1",
@@ -1363,7 +1434,7 @@ app_server <- function( input, output, session ) {
   
   ##### download updated D1 ######
   
-  #check all data correctly loaded. If TRUE -> error.
+  #check all data correctly loaded. If FALSE -> error.
   output$checkupdated_D1_fordownload = reactive({
     checkdatabase = tryCatch({D1_from_mod()
       FALSE
@@ -1532,9 +1603,9 @@ app_server <- function( input, output, session ) {
     }else{
       data_notsumm_D1() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
     }
-  })
+  },options = list(scrollX = TRUE))
   
-  
+
   
   ##### informative plots D1######
   
@@ -1598,6 +1669,11 @@ app_server <- function( input, output, session ) {
   
   
   ####barplot D1 ####
+  
+  observeEvent(data_notsumm_D1(),{
+    updateSelectInput(session, "typeeval_bar_D1", choices = colnames(dplyr::select(data_notsumm_D1(), where(is.double),-Dose)))
+  })
+  
   
   output$show_barplot2_D1 = reactive({
     ifelse(input$add_barplot_D1 %%2 == 1, TRUE, FALSE)
@@ -1747,7 +1823,7 @@ app_server <- function( input, output, session ) {
   
   ##### spiderplot d1 ####
   
-  mod_spiderplot_server("spiderplot_D1", data = data_D1)
+  mod_spiderplot_server("spiderplot_D1", data = data_D1, type_data = "D1")
   
   ##### bubbleplot d1 #####
   mod_bubble_plot_server("bubbleplot_D1", data = data_D1, type_data = "D1")
@@ -1788,7 +1864,7 @@ app_server <- function( input, output, session ) {
     filt = dplyr::filter(prod_total_D1(), Product_Family == input$prodfam_heat_D1) %>%
       dplyr::filter(Purification == input$purif_filt_heat_D1)
     values_comb_heat_D1$comb <- rev(unique(filt$Dose))
-    updateRadioButtons(session, "filt_dose_D1", choices = unique(filt$Dose),inline = TRUE) #c("All",
+    updateRadioButtons(session, "filt_dose_D1", choices = c("All",unique(filt$Dose)),inline = TRUE) #c("All",
   })
 
   observeEvent(input$revdose_heat_D1,{
@@ -1896,28 +1972,128 @@ app_server <- function( input, output, session ) {
     }
 
     cbc_filtered
-
-
   })
 
-
-  heatmap_D1 = eventReactive(input$makeheatmap_D1,{
+  ##### Custom legend values
+  
+  markers_heat_D1 = reactive({
     req(dataheat_D1())
+    
+    if(is.data.frame(dataheat_D1())){
+      markers_data = dataheat_D1() %>% dplyr::select(-dplyr::any_of(c("Vitality", "Cytotoxicity")))
+    }else{
+      markers_data = dataheat_D1()[[1]] %>% dplyr::select(-dplyr::any_of(c("Vitality", "Cytotoxicity")))
+    }
+  })
+  
+  
+  observeEvent(input$logheat_D1,{
+    if(input$logheat_D1 == TRUE){
+      if(all(markers_heat_D1() > 0) == FALSE){
+        showNotification(type = "warning", duration = 7, tagList(icon("exclamation-circle"), 
+                                 HTML("&nbsp;Warning! There are some negative values. The log scale will return some NAs.")))
+      }
+    }
+  })
+  
+  
+  output$uicustom_scale_heat_D1 = renderUI({
+    req(markers_heat_D1())
+    markers_data = markers_heat_D1()
+    
+    digitround = 0
+    
+    if(input$logheat_D1 == TRUE){
+      markers_data <- log2(markers_data)
+      digitround = 1
+    }
+    rangeui = list()
+    for(i in colnames(markers_data)){
+      rangeui[[i]] <- shinyWidgets::numericRangeInput(paste0("range_",i), label = paste0("Range of ", i), 
+                                                       value = c(round(min(markers_data[,i], na.rm = TRUE),digits = digitround), 
+                                                                 round(max(markers_data[,i], na.rm = TRUE), digits = digitround)))
+    }
+    return(rangeui)
+  })
+  
+  
+  #### Color pickers
+  output$colormark_ui_heat_D1 = renderUI({
+    req(markers_heat_D1())
+    
+    markers_data = markers_heat_D1()
+
+    default_colors =  RColorBrewer::brewer.pal(8, "Dark2")[-3]
+    index_color = 1
+    
+    colorsui = list()
+    for(i in colnames(markers_data)){
+      colorsui[[i]] = colorPickr(paste0("color_",i), label = paste0("Color of ", i),
+        theme = "monolith", selected = default_colors[index_color])
+      
+      index_color = index_color+1
+    }
+    return(colorsui)
+  })
+  
+  
+  
+  heatmap_D1 = eventReactive(input$makeheatmap_D1,{
+    req(markers_heat_D1())
     cbc_filtered = dataheat_D1()
+    
+
+    markers = colnames(markers_heat_D1())
+    
+    #custom range
+    custom_ranges = list()
+    if(input$scale_type_heat_D1 == "Custom"){
+      for(i in markers){
+        custom_ranges[[i]] = data.frame(min = input[[paste0("range_",i)]][1], max = input[[paste0("range_",i)]][2])
+      }
+    }
+    
+    #custom colors
+    custom_colors = NULL
+    if(input$custom_color_heat_D1 == TRUE){
+      for(i in markers){
+        custom_colors[[i]] = data.frame(color = input[[paste0("color_",i)]][1])
+      }
+    }
+
+    
     if(input$dose_op_heatmap_D1 == "filter"){
-
-
+      
+      if(input$filt_dose_D1 == "All"){
+        cnts = cbc_filtered[[1]] %>% tibble::rownames_to_column("Product") %>% dplyr::filter(!stringr::str_detect(Product, "CBC")) %>% 
+          tibble::column_to_rownames("Product")
+        
+        for(i in names(cbc_filtered)){
+          cbc_filtered[[i]] = cbc_filtered[[i]] %>% tibble::rownames_to_column("Product") %>% dplyr::filter(stringr::str_detect(Product, "CBC")) %>% 
+            dplyr::mutate(Product = paste0(Product, "-",i)) %>%  tibble::column_to_rownames("Product")
+        }
+        cbc_filtered = list("All"= rbind(Reduce(rbind,cbc_filtered),cnts))
+      }
+     
+      
       doses = as.character(input$filt_dose_D1)
+
       ht = make_heatmap_D1(data = cbc_filtered[[doses]],
                            type = input$dose_op_heatmap_D1,
                            row_dend = input$rowdend_D1,
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
-                           add_values= input$show_valheat_D1)
+                           add_values = input$show_valheat_D1,
+                           logscale = input$logheat_D1,
+                           scale_type = input$scale_type_heat_D1,
+                           custom_scale = custom_ranges,
+                           custom_colors = custom_colors)
+      
+      col_tit = ifelse(doses == "All", "All doses (ug/ml)", paste(doses, "ug/ml"))
 
       ComplexHeatmap::draw(ht, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"),
-        column_title  = paste(doses, "ug/ml"),column_title_gp = grid::gpar(fontsize = 18))
+        column_title  = col_tit,column_title_gp = grid::gpar(fontsize = 18))
 
     }else if(input$dose_op_heatmap == "mean"){
       ht = make_heatmap_D1(data = cbc_filtered,
@@ -1926,7 +2102,11 @@ app_server <- function( input, output, session ) {
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
-                           add_values= input$show_valheat_D1)
+                           add_values= input$show_valheat_D1,
+                           logscale = input$logheat_D1,
+                           scale_type = input$scale_type_heat_D1,
+                           custom_scale = custom_ranges,
+                           custom_colors = custom_colors)
 
       ComplexHeatmap::draw(ht, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"))
     }else{
@@ -1936,7 +2116,11 @@ app_server <- function( input, output, session ) {
                            row_nclust = input$sliderrowheat_D1,
                            dist_method = input$seldistheat_D1,
                            clust_method = input$selhclustheat_D1,
-                           add_values= input$show_valheat_D1)
+                           add_values= input$show_valheat_D1,
+                           logscale = input$logheat_D1,
+                           scale_type = input$scale_type_heat_D1,
+                           custom_scale = custom_ranges,
+                           custom_colors = custom_colors)
       ComplexHeatmap::draw(ht, merge_legend = TRUE, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(1, "cm"))
     }
   })

@@ -41,8 +41,16 @@ app_ui <- function(request) {
         sidebarMenu(
           id = "sidebarmenu",
           menuItem("Home", tabName = "home", icon = icon("home")),
-          menuItem("D1", tabName = "d1tab", icon = icon("table")),
-          menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("file-import"))
+          menuItem("D1", tabName = "d1tab", icon = icon("circle"),
+                   menuSubItem("Data summary", tabName = "d1summtab", icon = icon("clipboard-list")),
+                   menuSubItem("Search", tabName = "d1querytab", icon = icon("search")),
+                   menuSubItem("Explore", tabName = "d1plottab", icon = icon("chart-bar"))
+                   ),
+          menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("circle"),
+                   menuSubItem("Data summary", tabName = "cytosummtab", icon = icon("clipboard-list")),
+                   menuSubItem("Search", tabName = "cytoquerytab", icon = icon("search")),
+                   menuSubItem("Explore", tabName = "cytoplottab", icon = icon("chart-bar"))
+                   )
         )
       ),
 
@@ -81,12 +89,13 @@ app_ui <- function(request) {
           ),
           
           
-          #### menu cytotab ####
+          #### tabitem cyto summ ####
+          
           tabItem(
-            tabName = "cytotab",
-            #tabBox(id = "tabsetcyto", width = 12, status = "primary",
-            tabsetPanel(id = "tabsetcyto",
-
+            tabName = "cytosummtab",
+            tabsetPanel(
+              
+              ###### Data table cyto ####
               tabPanel(
                 "Data",
                 box(width = 12, status = "primary",
@@ -107,22 +116,25 @@ app_ui <- function(request) {
                   column(
                     1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
                     actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
-                    ),
+                  ),
                   column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
                   column(
                     1, style = "padding-right: 30rem; padding-left: 2rem;",
                     actionButton("upload_updated_cyto", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
-                  column(
-                    2, style = "text-align:center;",
-                    actionButton("save_update", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
-                    ),
+                  conditionalPanel(
+                    condition = "output.check_ifsave_cyto == true",
+                    column(
+                      2, style = "text-align:center;",
+                      actionButton("save_update", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                    )
+                  ),
                   conditionalPanel(
                     condition = "output.checkupdated_cyto_fordownload == true",
                     column(
                       3, style = "text-align:center;",
                       downloadButton("download_updated_cyto", "Download database", style='padding:10px; font-size:140%; font-weight: bold;')
-                      )
+                    )
                   ),
                   column(
                     2, style = "text-align:center;",
@@ -130,7 +142,7 @@ app_ui <- function(request) {
                   )
                   
                 ),
-
+                
                 tags$head(tags$style("#upcyto_tab .modal-dialog{ min-width:170rem}")),
                 tags$head(tags$style("#upcyto_tab .modal-body{ min-height:80rem}")),
                 shinyBS::bsModal(
@@ -166,8 +178,7 @@ app_ui <- function(request) {
                 
               ),
               
-              
-              ##### informative graphs #####
+              ####### informative graphs #####
               tabPanel(
                 "Data exploration",
                 sidebarLayout(
@@ -206,14 +217,60 @@ app_ui <- function(request) {
                     conditionalPanel(
                       condition = "input.seltype_infograph == 'Heatmap'",
                       InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_inform_output", layout = "1|(2-3)", width1 = 1000, height1 = 800)
-                      
                     )
                     
                   )
                 )
+              )
 
-              ),
-              
+            )
+          ),
+          
+          
+          
+          ##### tabitem cyto query ####
+          tabItem(
+            tabName = "cytoquerytab",
+
+              box(
+                width = 12, status = "primary",
+                fluidRow(
+                  column(
+                    3,
+                    selectInput("filtmod_query_cyto", "Filter Model_type", choices = "", multiple = TRUE)),
+                  column(
+                    3,
+                    selectInput("selcol_query_cyto", "Column", choices = "")
+                  ),
+                  column(
+                    2,
+                    selectInput("selop_query_cyto", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                  ),
+                  conditionalPanel(
+                    condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
+                    column(
+                      3,
+                      numericInput("thresh_query_cyto", "Threshold", value = 1)
+                    )
+                  )
+                  
+                )
+                ),
+            box(
+              width = 12, status = "primary",
+              fluidRow(column(6,DTOutput("querydt_cyto"))
+              ))
+            
+            
+          ),
+          
+          
+          #### tabitem cyto plot ####
+          tabItem(
+            tabName = "cytoplottab",
+            #tabBox(id = "tabsetcyto", width = 12, status = "primary",
+            tabsetPanel(id = "tabsetcyto",
+
               ##### Barplot #####
               tabPanel(
                 "Barplot",
@@ -397,10 +454,10 @@ app_ui <- function(request) {
           
           
           ####### D1 #######
+          
           tabItem(
-            tabName = "d1tab",
-            #tabBox(id = "tabsetd1", width = 12, status = "primary",
-            tabsetPanel(id = "tabsetd1",
+            tabName = "d1summtab",
+            tabsetPanel(
               tabPanel(
                 "Data",
                 
@@ -429,9 +486,13 @@ app_ui <- function(request) {
                     1, style = "padding-right: 30rem; padding-left: 2rem;",
                     actionButton("upload_updated_D1", "Upload database", icon("upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
-                  column(
-                    2, style = "text-align:center;",
-                    actionButton("save_update_D1", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                  
+                  conditionalPanel(
+                    condition = "output.check_ifsave_D1 == true",
+                    column(
+                      2, style = "text-align:center;",
+                      actionButton("save_update_D1", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                    )
                   ),
                   conditionalPanel(
                     condition = "output.checkupdated_D1_fordownload == true",
@@ -480,42 +541,6 @@ app_ui <- function(request) {
                   )
                 )
                 
-                # sidebarLayout(
-                #   sidebarPanel(
-                #     width = 3,
-                #     fluidRow(
-                #       column(10, fileInput("exp_list_file_D1","Select the Experiment list file (.xlsx)")),
-                #       column(
-                #         2, style="padding-left: 9px; padding-top: 4px;",br(), 
-                #         mod_edit_data_ui("edit_exp_list_D1"))
-                #     ),
-                #     conditionalPanel(
-                #       condition = "output.check_explist_D1 == false",
-                #       fluidRow(
-                #         column(10, fileInput("target_file_D1","Select the Target file (.xlsx)")),
-                #         column(
-                #           2, br(), style="padding-left: 9px; padding-top: 4px;",
-                #           mod_edit_data_ui("edit_target_D1"))
-                #       )
-                #     ),
-                #     conditionalPanel(
-                #       condition = "output.check_target_D1 == false",
-                #       div(actionButton("gocyto_D1", "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
-                #     ),
-                #     conditionalPanel(
-                #       condition = "output.check_data_D1 == false",
-                #       hr(),
-                #       materialSwitch("summ_viewtable_D1", label = "Summarize data", value = TRUE, status = "primary")
-                #     )
-                #     
-                #     
-                #   ),
-                #   mainPanel(
-                #     width = 9,
-                #     div(DT::DTOutput("dtdata_D1"), style = "overflow-x: scroll;")
-                #   )
-                # )
-                
               ), #end of tabpanel D1
               
               #### Data exploration D1 ####
@@ -536,16 +561,32 @@ app_ui <- function(request) {
                       condition = "input.seltype_infograph_D1 == 'Data overview'",
                       shinycssloaders::withSpinner(plotly::plotlyOutput("countbarplot_D1"))
                     ),
-
+                    
                     conditionalPanel(
                       condition = "input.seltype_infograph_D1 == 'Product family'",
                       shinycssloaders::withSpinner(uiOutput("prodfam_barplotUI_D1"))
                     )
-                    
                   )
                 )
                 
-              ),
+              )
+            )
+          ),
+          
+          
+          
+          #### tabitem d1 query ####
+          tabItem(
+            tabName = "d1querytab",
+          ),
+          
+          
+          
+          tabItem(
+            tabName = "d1plottab",
+            #tabBox(id = "tabsetd1", width = 12, status = "primary",
+            tabsetPanel(id = "tabsetd1",
+
               
               ##### Barplot D1 #####
               tabPanel(
@@ -553,7 +594,7 @@ app_ui <- function(request) {
                 sidebarLayout(
                   sidebarPanel(
                     width = 3,
-                    selectInput("typeeval_bar_D1", "Select a measure", choices = c("Cytotoxicity", "Vitality")),
+                    selectInput("typeeval_bar_D1", "Select a measure", choices = ""),
                     fluidRow(
                       column(6, selectInput("model_filt_bar_D1", "Filter Model type", choices = "")),
                       column(6, selectInput("family_filt_bar_D1", "Filter Product Family", choices = ""))),
@@ -636,6 +677,24 @@ app_ui <- function(request) {
                     ),
                     
                     hr(),
+                    h4(strong("Scale options")),
+                    fluidRow(column(5, br(), awesomeCheckbox("logheat_D1", "Log scale")),
+                    column(7, selectInput("scale_type_heat_D1", "Scale type", choices = c("To max", "Adaptive", "Absolute", "Custom")))),
+                    conditionalPanel(
+                      condition = "input.scale_type_heat_D1 == 'Custom'",
+                      uiOutput("uicustom_scale_heat_D1")
+                    ),
+                    
+                    ### color pickers
+                    hr(),
+                    h4(strong("Colors")),
+                    awesomeCheckbox("custom_color_heat_D1", "Custom colors"),
+                    conditionalPanel(
+                      condition = "input.custom_color_heat_D1 == true",
+                      uiOutput("colormark_ui_heat_D1")
+                    ),
+                    
+                    hr(),
                     h4(strong("Data heatmap")),
                    # fluidRow(
                      # column(5, style="padding-top: 5px;", br(), 
@@ -662,10 +721,9 @@ app_ui <- function(request) {
                                selectInput("selhclustheat_D1", "Clustering method:", choices = c("ward.D2", "complete", "average" , "median"), selected = "complete")
                         )
                       ),
-                      fluidRow(
-                        hr(),
-                        sliderInput("sliderrowheat_D1", "Row cluster number:", min=2, max = 10, value=2, step = 1)
-                      )
+                      hr(),
+                      sliderInput("sliderrowheat_D1", "Row cluster number:", min=2, max = 10, value=2, step = 1)
+                      
                     )
                     
                     # conditionalPanel(condition = "input.rowdend == 0",
@@ -678,7 +736,7 @@ app_ui <- function(request) {
                   
                   mainPanel(
                     width = 9,
-                    InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_D1_output", layout = "1|(2-3)", width1 = 1000, height1 = 800)
+                    InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_D1_output", layout = "1|(2-3)", width1 = 650, height1 = 700)
                   )
                 )
               )
@@ -713,7 +771,7 @@ golem_add_external_resources <- function(){
   )
  
   tags$head(
-    favicon(),
+    favicon(ext = 'png'),
     bundle_resources(
       path = app_sys('app/www'),
       app_title = 'ADViSEBioassay'

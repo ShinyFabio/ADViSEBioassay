@@ -1,20 +1,26 @@
 
 make_heatmap_D1 = function(data,
-                           #title = "CBC150",
                            row_dend = TRUE, 
                            row_nclust = 2, 
                            dist_method = "euclidean", 
                            clust_method = "ward.D2",
-                           #unit_legend = "% toxicty",
                            col_label_size = 8,
                            add_values = FALSE,
                            thresh_values = 0,
-                           type = "mean"){
+                           type = "mean",
+                           logscale = FALSE,
+                           scale_type = "To max",
+                           custom_scale = NULL,
+                           custom_colors = NULL
+                           ){
   
   
   ht_list = NULL
   colors =  RColorBrewer::brewer.pal(8, "Dark2")[-3]
   index_color = 1
+  
+  absolute_max = max(dplyr::select(data, -dplyr::any_of(c("Vitality", "Cytotoxicity"))), na.rm = TRUE)
+  
   
   for(k in colnames(data)){
     
@@ -29,9 +35,37 @@ make_heatmap_D1 = function(data,
       }
       unit_legend = paste0("%",k)
     }else{
-      color_scale = circlize::colorRamp2(c(0, max(data[,k])), c("white", colors[index_color]))
-      index_color = index_color+1
-      unit_legend = k ######unità di misura????????????
+      
+      #logscale
+      if(logscale == TRUE){
+        data_filt = log2(data_filt)
+        absolute_max = log2(absolute_max)
+      }
+      
+      #colors
+      if(is.null(custom_colors)){
+        final_color = colors[index_color]
+        index_color = index_color+1
+      }else{
+        final_color = custom_colors[[k]]$color
+      }
+      
+      
+      #scale type
+      if(scale_type == "To max"){
+        color_scale = circlize::colorRamp2(c(0, max(data_filt, na.rm = TRUE)), c("white", final_color))
+      }else if(scale_type == "Adaptive"){
+        color_scale = circlize::colorRamp2(c(min(data_filt, na.rm = TRUE), max(data_filt, na.rm = TRUE)), c("white", final_color))
+      }else if(scale_type == "Absolute"){
+        #take the largest value among all columns (except vita and cyto)
+        color_scale = circlize::colorRamp2(c(0, absolute_max), c("white", final_color))
+      }else if(scale_type == "Custom"){
+        color_scale = circlize::colorRamp2(c(custom_scale[[k]]$min, custom_scale[[k]]$max), c("white", final_color))
+      }
+      
+      
+      unit_legend = k
+     
     }
     
     
