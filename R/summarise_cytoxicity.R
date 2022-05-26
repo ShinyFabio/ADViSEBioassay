@@ -4,7 +4,7 @@
 #'
 #' @param X data to summarise.
 #' @param group Column used for the grouping. The columns in group will not be removed.
-#' @param method Charcter. Can be "cyto" or "d1".
+#' @param method Charcter. Can be "cyto", "d1" or "trem".
 #' 
 #'
 #' @importFrom dplyr group_by summarise ungroup across
@@ -14,6 +14,8 @@
 
 
 summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD80", "CD40", "MHC-II")){
+  
+  fun_CV = function(x){sd(x, na.rm = TRUE)/mean(x, na.rm = TRUE)}
   
   if (method == "cyto"){
     
@@ -29,7 +31,7 @@ summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD
     #X$CV = tidyr::replace_na(X$CV, 0)
   }else if(method == "d1"){
     
-    fun_CV = function(x){sd(x, na.rm = TRUE)/mean(x, na.rm = TRUE)}
+    
     
       X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
       dplyr::summarise(
@@ -44,6 +46,17 @@ summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD
       ) %>% dplyr::ungroup() %>% dplyr::rename_with(.cols = markers_name, .fn = ~paste0(.x,".CV")) %>% 
         tidyr::unnest_wider(mean)
 
+  }else if(method == "trem"){
+    X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
+      dplyr::summarise(
+        Cytotoxicity.average = mean(Cytotoxicity, na.rm=TRUE),
+        Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
+        Cytotoxicity.nreps =n(),
+        Vitality.average = mean(Vitality, na.rm=TRUE),
+        Cytotoxicity.CV = fun_CV(Cytotoxicity),
+        Vitality.CV = fun_CV(Vitality),
+        GFP.average = mean(GFP, na.rm = TRUE)
+      ) %>% dplyr::ungroup()
   }else{
     return(NULL)
     message("wrong method in summarise_cytotoxicity")

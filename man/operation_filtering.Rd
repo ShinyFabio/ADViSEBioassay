@@ -4,7 +4,17 @@
 \alias{operation_filtering}
 \title{operation_filtering}
 \usage{
-operation_filtering(data, column, operator, value)
+operation_filtering(
+  data,
+  column,
+  operator,
+  value,
+  n_query = "one",
+  column2 = NULL,
+  operator2 = NULL,
+  value2 = NULL,
+  type_output
+)
 }
 \arguments{
 \item{data}{The summarized data}
@@ -14,6 +24,16 @@ operation_filtering(data, column, operator, value)
 \item{operator}{Character. The operator to be used. A choice beetween "max", "min", "greater than", "greater than or equal", "equal", "less than or equal" or "less than".}
 
 \item{value}{Numeric. Value used to compare the data.}
+
+\item{n_query}{Character. Number of queries. Can be "one" or "two".}
+
+\item{column2}{Character. The column for the second query where to apply the filtering (e.g. "Cytotoxicity.average")}
+
+\item{operator2}{Character. The operator to be used for the second query.}
+
+\item{value2}{Numeric. Value used to compare the data for the second query.}
+
+\item{type_output}{Character. The type of the output. Can be "summ" or "raw".}
 }
 \description{
 \code{operation_filtering} Function for the query

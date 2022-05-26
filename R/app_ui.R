@@ -231,35 +231,65 @@ app_ui <- function(request) {
           ##### tabitem cyto query ####
           tabItem(
             tabName = "cytoquerytab",
-
-              box(
-                width = 12, status = "primary",
-                fluidRow(
-                  column(
-                    3,
-                    selectInput("filtmod_query_cyto", "Filter Model_type", choices = "", multiple = TRUE)),
-                  column(
-                    3,
-                    selectInput("selcol_query_cyto", "Column", choices = "")
-                  ),
-                  column(
-                    2,
-                    selectInput("selop_query_cyto", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
-                  ),
-                  conditionalPanel(
-                    condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
-                    column(
-                      3,
-                      numericInput("thresh_query_cyto", "Threshold", value = 1)
+            
+            ###first query
+            box(
+              width = 12, status = "primary",
+              fluidRow(
+                column(3,
+                  selectInput("filtmod_query_cyto", "Filter Model_type", choices = "", multiple = TRUE),
+                  radioButtons("andor_query_cyto", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
+                ),
+                column(3,
+                  selectInput("selcol_query_cyto", "Column", choices = "")
+                ),
+                column(2,
+                  selectInput("selop_query_cyto", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                ),
+                conditionalPanel(
+                  condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
+                  column(2, numericInput("thresh_query_cyto", "Threshold", value = 1))
+                ),
+                column(1, br(),shinyBS::bsButton("add2query_cyto", label = HTML("&nbsp;Add"), style="success", icon("plus")))
+              )
+            ),
+            
+            
+            ###second query
+            conditionalPanel(condition = "output.checkadd2query_cyto == 'twoquery'",
+              box(width = 12, status = "primary",
+                  fluidRow(
+                    # column(3,
+                    #   selectInput("filtmod_query_cyto2", "Filter Model_type", choices = "", multiple = TRUE),
+                    #   radioButtons("andor_query_cyto2", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
+                    # ),
+                    column(3,
+                      selectInput("selcol_query_cyto2", "Column", choices = "")
+                    ),
+                    column(2,
+                      selectInput("selop_query_cyto2", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                    ),
+                    conditionalPanel(
+                      condition = "input.selop_query_cyto2 != 'max' && input.selop_query_cyto2 != 'min'",
+                      column(2, numericInput("thresh_query_cyto2", "Threshold", value = 1))
                     )
                   )
                   
-                )
+              )
+            ),
+            
+            
+            fluidRow(column(12,
+              box(
+                width = 4, status = "primary",
+                shinycssloaders::withSpinner(DTOutput("querydt_cyto"))
                 ),
-            box(
-              width = 12, status = "primary",
-              fluidRow(column(6,DTOutput("querydt_cyto"))
-              ))
+              box(
+                width = 8, status = "primary",
+                shinycssloaders::withSpinner(DTOutput("query2dt_cyto"))
+              )
+            ))
+
             
             
           ),
@@ -578,6 +608,62 @@ app_ui <- function(request) {
           #### tabitem d1 query ####
           tabItem(
             tabName = "d1querytab",
+            
+            ###first query
+            box(
+              width = 12, status = "primary",
+              fluidRow(
+                # column(3,
+                #        selectInput("filtmfi_query_d1", "Filter Model_type", choices = "", multiple = TRUE),
+                #        radioButtons("andor_query_d1", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
+                # ),
+                column(3,
+                       selectInput("selcol_query_d1", "MFI", choices = c( "CD40","MHC-II", "CD80"), multiple = TRUE)
+                ),
+                column(2,
+                       selectInput("selop_query_d1", "Operator", choices = c("greater than", "greater than or equal"))
+                ),
+                # conditionalPanel(
+                #   condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
+                  column(2, numericInput("thresh_query_d1", "Times", value = 2.5)),
+                #),
+                column(1, br(),shinyBS::bsButton("add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus")))
+              )
+            ),
+            
+            
+            ###second query
+            conditionalPanel(
+              condition = "output.checkadd2query_D1 == 'twoquery'",
+              box(width = 12, status = "primary",
+                  fluidRow(
+                    column(3,
+                           selectInput("selcol_query_d12", "Column", choices = "")
+                    ),
+                    column(2,
+                           selectInput("selop_query_d12", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                    ),
+                    conditionalPanel(
+                      condition = "input.selop_query_d12 != 'max' && input.selop_query_d12 != 'min'",
+                      column(2, numericInput("thresh_query_d12", "Threshold", value = 1))
+                    )
+                  )
+                  
+              )
+            ),
+            
+            
+            fluidRow(column(12,
+                            box(
+                              width = 4, status = "primary",
+                              shinycssloaders::withSpinner(DTOutput("querydt_D1"))
+                            ),
+                            box(
+                              width = 8, status = "primary",
+                              shinycssloaders::withSpinner(DTOutput("query2dt_D1"))
+                            )
+            ))
+
           ),
           
           

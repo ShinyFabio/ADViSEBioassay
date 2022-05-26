@@ -4,7 +4,7 @@ library(dplyr)
 Experiment_list <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Experiment_list_v2.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
 
 ## load target file
-Target_file <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/TARGET_FILE 7.4.22.xlsx",na = "NA") %>% 
+Target_file <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/TARGET_FILE completo.xlsx",na = "NA") %>% 
   janitor::remove_empty(which = c("rows", "cols"), quiet =F) %>% dplyr::filter(Experiment_id %in% Experiment_list$Experiment_id)
 
 

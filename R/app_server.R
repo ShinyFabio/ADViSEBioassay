@@ -703,7 +703,32 @@ app_server <- function( input, output, session ) {
     
     cols = dataquery_cyto() %>% dplyr::select(where(is.double)) %>% dplyr::select(-Dose) %>% colnames()
     updateSelectInput(session, "selcol_query_cyto", choices = cols)
+    
+    #2 query
+    updateSelectInput(session, "selcol_query_cyto2", choices = cols)
   })
+  
+  
+  
+  #add another query
+  output$checkadd2query_cyto = reactive({
+    if(input$add2query_cyto %%2 == 0){
+      "onequery"
+    }else{"twoquery"}
+  })
+  outputOptions(output, "checkadd2query_cyto", suspendWhenHidden = FALSE)
+  
+  observeEvent(input$add2query_cyto,{
+    if(input$add2query_cyto %%2 == 1){
+      updateButton(session, "add2query_cyto",label = HTML("&nbsp;Remove"), style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add2query_cyto", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+    }
+  })
+  
+  
+
+  
   
   query_cyto = reactive({
     req(dataquery_cyto())
@@ -711,28 +736,62 @@ app_server <- function( input, output, session ) {
     validate(need(input$filtmod_query_cyto, "Select something in the Model_type filtering."))
     if("All" %in% input$filtmod_query_cyto){
       data = dataquery_cyto()
+      leng_modtype = length(unique(dataquery_cyto()$Model_type))
     }else{
       data = dataquery_cyto() %>% dplyr::filter(Model_type %in% input$filtmod_query_cyto)
+      leng_modtype = length(input$filtmod_query_cyto)
     }
     
-    temp = lapply(unique(data$Model_type), function(x){
-      operation_filtering(data = dplyr::filter(data, Model_type == x), 
-                          column = input$selcol_query_cyto,
-                          operator = input$selop_query_cyto,
-                          value = input$thresh_query_cyto)
-    })
-
-    #convert to dataframe
-    data.frame(Reduce(rbind, temp))
     
+    for(i in c("raw","summ")){
+      temp[[i]] = lapply(unique(data$Model_type), function(x){
+        operation_filtering(data = dplyr::filter(data, Model_type == x), 
+                            column = input$selcol_query_cyto,
+                            operator = input$selop_query_cyto,
+                            value = input$thresh_query_cyto,
+                            n_query = ifelse(input$add2query_cyto %%2 == 1, "two", "one"),
+                            column2 = input$selcol_query_cyto2,
+                            operator2 = input$selop_query_cyto2,
+                            value2 = input$thresh_query_cyto2,
+                            type_output = i
+        )
+      })
+      
+      #convert to dataframe
+      temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
+    }
+
+
+    
+    #temp = data.frame(Reduce(rbind, temp$summ))
+    
+    if(input$andor_query_cyto == "AND"){
+      
+      joined = temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
+        dplyr::filter(n == leng_modtype) %>% dplyr::pull(Product_Family)
+      
+      temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
+    }
+    
+    return(temp)
   })
   
   output$querydt_cyto = renderDT({
     req(query_cyto())
-    query_cyto()
-  })
+    query_cyto()$summ
+  }, selection = "single", server = FALSE, rownames = FALSE, options = list(lengthMenu = c(10, 15, 25, 50), pageLength = 15))
   
   
+  
+  output$query2dt_cyto = renderDT({
+    req(input$querydt_cyto_rows_selected)
+    
+    nroww = input$querydt_cyto_rows_selected
+    
+    query_cyto()$raw %>% dplyr::filter(Product_Family == query_cyto()$summ[nroww,]$Product_Family,
+                                       Model_type == query_cyto()$summ[nroww,]$Model_type)
+
+  },options = list(scrollX = TRUE))
   
   ##### bubbleplot ####
   
@@ -1666,6 +1725,123 @@ app_server <- function( input, output, session ) {
     
     plotly::plotlyOutput("prodfam_barplot_D1", height = paste0(size_plot,"px"))
   })
+  
+  
+  
+  ##### Query D1 #####
+  
+  
+  dataquery_D1 = reactive({
+    req(data_D1())
+    data_D1() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+  })
+  
+
+  
+  observeEvent(dataquery_D1(),{
+
+    cols = dataquery_D1() %>% dplyr::select(where(is.double) & -starts_with(c("Cyto", "Vita")) & -ends_with("CV"),-Dose) %>% colnames()
+    updateSelectInput(session, "selcol_query_d1", choices = cols)
+    
+    #2 query
+    cols2 = dataquery_D1() %>% dplyr::select(starts_with(c("Cyto", "Vita")) & -ends_with(c("sd",".nreps"))) %>% colnames()
+    updateSelectInput(session, "selcol_query_d12", choices = cols2)
+  })
+  
+  
+  #add another query
+  output$checkadd2query_D1 = reactive({
+    if(input$add2query_d1 %%2 == 0){
+      "onequery"
+    }else{"twoquery"}
+  })
+  outputOptions(output, "checkadd2query_D1", suspendWhenHidden = FALSE)
+  
+  observeEvent(input$add2query_d1,{
+    if(input$add2query_d1 %%2 == 1){
+      updateButton(session, "add2query_d1",label = HTML("&nbsp;Remove"), style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+    }
+  })
+  
+  
+  query_D1 = reactive({
+    req(dataquery_D1())
+    validate(need(input$selcol_query_d1, "Select something in the MFI selection."))
+    
+    mydataset_D1 = dataquery_D1()
+    cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
+    
+    temp = NULL
+    for(i in input$selcol_query_d1){
+      temp[[i]] = lapply(unique(mydataset_D1$Product_Family), function(x){
+        data = dplyr::filter(mydataset_D1, Product_Family == x)
+        if(length(unique(data$Purification)) >1){
+          #if there are multiple purification, we have to check for each purification
+          lapply(unique(data$Purification), function(k){
+            data2 = data %>% dplyr::filter(Purification == k)
+            cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id) & Product == "CTRL") %>% as.data.frame()
+            if(input$selop_query_d1 == "greater than"){
+              data2 %>% dplyr::filter(get(i) > mean(cnt2[,i])*input$thresh_query_d1)
+            }else{
+              data2 %>% dplyr::filter(get(i) >= mean(cnt2[,i])*input$thresh_query_d1)
+            }
+            
+          }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
+          
+        }else{
+          cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
+          data %>% dplyr::filter(get(i) >= mean(cnt[,i])* input$thresh_query_d1)
+        }
+      })
+      
+      temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
+    }
+    
+    if(length(input$selcol_query_d1) > 1){
+      raw = Reduce(intersect, temp)
+    }else{
+      raw = temp[[input$selcol_query_d1]]
+    }
+    
+    if(input$add2query_d1 %%2 == 1){
+      raw = operation_filtering(data = raw,
+                                column = input$selcol_query_d12,
+                                operator = input$selop_query_d12,
+                                value = input$thresh_query_d12,
+                                n_query = "one",
+                                type_output = "raw")
+    }
+    
+    
+    summ = raw %>% group_by(Model_type, Product_Family) %>% dplyr::summarise(n_products = n())
+    
+    list(raw = raw, summ = summ)
+    
+  })
+  
+  
+  
+  ### datatables
+  output$querydt_D1 = renderDT({
+    req(query_D1())
+    query_D1()$summ
+  }, selection = "single", server = FALSE, rownames = FALSE, options = list(lengthMenu = c(10, 15, 25, 50), pageLength = 15))
+  
+  
+  
+  output$query2dt_D1 = renderDT({
+    req(input$querydt_D1_rows_selected)
+    
+    nroww = input$querydt_D1_rows_selected
+    
+    query_D1()$raw %>% dplyr::filter(Product_Family == query_D1()$summ[nroww,]$Product_Family,
+                                       Model_type == query_D1()$summ[nroww,]$Model_type)
+    
+  },options = list(scrollX = TRUE))
+  
+
   
   
   ####barplot D1 ####
