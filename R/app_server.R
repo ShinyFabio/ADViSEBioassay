@@ -2307,4 +2307,47 @@ app_server <- function( input, output, session ) {
   })
 
 
+  
+  
+  ###### Reporter ########
+  
+  repo_data1 = reactiveVal() #database_repo
+  
+  observe({
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/repo/database_updated_repo.rds")
+    
+    if(file.exists(filepath) == TRUE){
+      repo_data1(readRDS(filepath))
+    }
+  })
+  
+  output$valbox_repo = renderUI({
+    if(is.null(repo_data1())){
+      box(width = 12, background = "yellow",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("Reporter data: "),style = "color: white"),
+                     h5("No Reporter data present in database!", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-exclamation-triangle", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
+    }else{
+      n_az = repo_data1()$mydataset$Experiment_id %>% unique() %>% length()
+      box(width = 12, background = "green",
+          fluidPage(
+            fluidRow(
+              column(9, 
+                     h4(strong("Reporter data: "),style = "color: white"),
+                     h5(strong(n_az), " experiments.", style = "color: white")),
+              column(3, style = "padding-right: 0px; text-align: right;",
+                     tags$i(class = "fas fa-check", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
+            )
+          )
+      )
+    }
+  })
+  
 }

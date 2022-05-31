@@ -50,6 +50,11 @@ app_ui <- function(request) {
                    menuSubItem("Data summary", tabName = "cytosummtab", icon = icon("clipboard-list")),
                    menuSubItem("Search", tabName = "cytoquerytab", icon = icon("search")),
                    menuSubItem("Explore", tabName = "cytoplottab", icon = icon("chart-bar"))
+                   ),
+          menuItem("Reporter", tabName = "repotab", icon = icon("circle"),
+                   menuSubItem("Data summary", tabName = "reposummtab", icon = icon("clipboard-list")),
+                   menuSubItem("Search", tabName = "repoquerytab", icon = icon("search")),
+                   menuSubItem("Explore", tabName = "repoplottab", icon = icon("chart-bar"))
                    )
         )
       ),
@@ -72,7 +77,7 @@ app_ui <- function(request) {
               ),
             br(),
             fluidRow(column(12,wellPanel(
-              h3(strong("ADViSEBioassay")," is a Shiny app for..........",style = "color: #0e3d51;")
+              h3(strong("ADViSEBioassay")," is a Shiny app for..........PAGE UNDER CONSTRUCTION",style = "color: #0e3d51;")
             ))),
             br(),
             fluidRow(
@@ -81,6 +86,7 @@ app_ui <- function(request) {
               box(width = 3, status = "primary", title = h3(strong("Database"), style = "color: white; display:inline; margin-top: 0px;margin-bottom: 0px;"), solidHeader = T,
                   uiOutput("valbox_cyto"),
                   uiOutput("valbox_D1"),
+                  uiOutput("valbox_repo"),
                   div(actionButton("loaddatabase", label = HTML("&nbsp;Load database!"), icon("rocket"), class = "btn btn-primary btn-lg", style='padding:10px; font-size:140%; font-weight: bold;'),style = "text-align: center;")
               )
               
