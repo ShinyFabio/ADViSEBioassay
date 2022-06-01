@@ -57,7 +57,7 @@ mod_bubble_plot_ui <- function(id, size_choices = c("CV", "Corrected_value")){
           )
         ),
         conditionalPanel(
-          condition = "input.CV_filtering == true", ns = ns,
+          condition = "input.CV_filtering == true && input.varsize_bubb == 'CV'", ns = ns,
           sliderInput(ns("CV_threshold"), "High CV threshold", min = 0, max = 1, value = 1, step = 0.05)
         ),
         hr(),
@@ -292,7 +292,7 @@ mod_bubble_plot_server <- function(id, data, type_data = "cyto"){
       type_cv = ifelse(type_data == "cyto", input$varsize_bubb, paste0(input$typeeval_bubb, ".CV"))
       ord = order_data(data_bubble(),as_factor = TRUE)
 
-      if(input$CV_filtering == TRUE){
+      if(input$CV_filtering == TRUE & input$varsize_bubb == 'CV'){
         ord = ord %>% dplyr::mutate(Shape = dplyr::case_when(is.na(dplyr::across(type_cv)) ~ "NA", 
                                                       dplyr::across(type_cv) > input$CV_threshold ~ "Large CV", 
                                                       TRUE ~ "Low CV"))

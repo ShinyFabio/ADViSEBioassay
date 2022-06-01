@@ -705,6 +705,7 @@ app_server <- function( input, output, session ) {
     updateSelectInput(session, "selcol_query_cyto", choices = cols)
     
     #2 query
+    #updateSelectInput(session, "filtmod_query_cyto2", choices = c("All",unique(dataquery_cyto()$Model_type)))
     updateSelectInput(session, "selcol_query_cyto2", choices = cols)
   })
   
@@ -742,7 +743,7 @@ app_server <- function( input, output, session ) {
       leng_modtype = length(input$filtmod_query_cyto)
     }
     
-    
+    temp = list()
     for(i in c("raw","summ")){
       temp[[i]] = lapply(unique(data$Model_type), function(x){
         operation_filtering(data = dplyr::filter(data, Model_type == x), 
@@ -761,12 +762,11 @@ app_server <- function( input, output, session ) {
       temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
     }
 
-
+    
     
     #temp = data.frame(Reduce(rbind, temp$summ))
     
     if(input$andor_query_cyto == "AND"){
-      
       joined = temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
         dplyr::filter(n == leng_modtype) %>% dplyr::pull(Product_Family)
       
