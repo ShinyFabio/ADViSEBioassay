@@ -64,6 +64,13 @@ update_database = function(old_data, new_data = NULL){
     
     
     #check duplicate experiments
+    #if all experiment are the same
+    if(all(unique(new_data[[i]]$Experiment_id) %in% unique(old_data[[i]]$Experiment_id))){
+      message("Error! The experiments in the new data are alredy present in the database.")
+      showNotification(tagList(icon("exclamation-circle"), 
+                               HTML("The experiments in the new data are alredy present in the database.")), type = "warning")
+      return(0)
+    }
     if(TRUE %in% (unique(new_data[[i]]$Experiment_id) %in% unique(old_data[[i]]$Experiment_id))){
       message("The new data contains one or more Experiments already present in the database. They will be removed.")
       showNotification(tagList(icon("exclamation-circle"), 
@@ -76,7 +83,7 @@ update_database = function(old_data, new_data = NULL){
       
       message(paste0("Duplicated Experiments removed: ",paste0(exp_to_rem, collapse = ", ")))
       
-      new_data[[i]] = new_data[[i]] %>% dplyr::filter(Experiment_id != exp_to_rem)
+      new_data[[i]] = new_data[[i]] %>% dplyr::filter(!Experiment_id %in% exp_to_rem)
       
     }
     

@@ -9,10 +9,15 @@
 #'
 
 
-order_data = function(data, as_factor = FALSE){
+order_data = function(data, as_factor = FALSE, var_to_order){
   
-
-  data = data %>% dplyr::arrange(Model_type)
+  if(is.null(var_to_order)) return(data)
+  if(var_to_order == "") return(data)
+  if(length(var_to_order) > 1){
+    message("Too many variable for the arrange function in the heatmap.")
+    return(data)
+  }
+  data = data %>% dplyr::arrange(dplyr::all_of(var_to_order))
 
   prod = unique(na.omit(dplyr::filter(data, !if_any("Product_Family", ~grepl("CTRL",.)))$Product_Family))
   level_order = c("CTRL", "CTRL+",prod)

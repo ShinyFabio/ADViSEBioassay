@@ -68,9 +68,17 @@ mod_spiderplot_server <- function(id, data, type_data){
       updateSelectInput(session, "model_filt_spid3", choices = unique(data()$Model_type))
       
       
-      if(type_data == "D1"){
+      if(type_data() == "D1"){
         marker = colnames(dplyr::select(data(), where(is.double),-dplyr::starts_with(c("Cyto", "Vita")),-Dose, -dplyr::ends_with(".CV")))
         updateSelectInput(session, "typeeval_spid", choices = c("Cytotoxicity", "Vitality", marker))
+      }
+      if(type_data() == "SEAP"){
+        updateSelectInput(session, "typeeval_spid", choices = c("Concentration" = "Concentration.average"))
+      }
+      if(type_data() == "TREM2"){
+        updateSelectInput(session, "typeeval_spid", choices = c("Cytotoxicity" = "Cytotoxicity.average",
+                                                                "Vitality" = "Vitality.average",
+                                                                "GFP" = "GFP.average"))
       }
     })
     
@@ -185,12 +193,12 @@ mod_spiderplot_server <- function(id, data, type_data){
             dplyr::select(dplyr::all_of(type_meas)) %>% t()
         }
         
-        title_spid = paste(input$typeeval_spid,"of",input$family_filt_spid, "at", input$dose_filt_spid, "ug/mL")
+        title_spid = paste(gsub(".average","",input$typeeval_spid),"of",input$family_filt_spid, "at", input$dose_filt_spid, "ug/mL")
         
         
       }else{
         req(input$family_filt_spid2, input$model_filt_spid2, input$dose_filt_spid2, input$purif_filt_spid2)
-        validate(need(paste(input$family_filt_spid,input$dose_filt_spid,input$purif_filt_spid) != paste(input$family_filt_spid2,input$dose_filt_spid2,input$purif_filt_spid2), 
+        validate(need(paste(input$model_filt_spid,input$family_filt_spid,input$dose_filt_spid,input$purif_filt_spid) != paste(input$model_filt_spid2,input$family_filt_spid2,input$dose_filt_spid2,input$purif_filt_spid2), 
                       "Please select a different product, dose or purification"))
         #first sample
         if(length(unique(data_plot1$Experiment_id))>1){
@@ -240,17 +248,17 @@ mod_spiderplot_server <- function(id, data, type_data){
           doses2 = unique(c(input$dose_filt_spid, input$dose_filt_spid2))
           doses2 = ifelse(length(doses2) > 1, paste0(doses2[1], " and ", doses2[2] ), doses2)
           if(input$family_filt_spid == input$family_filt_spid2){
-            title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid, "at", doses2, "ug/mL")
+            title_spid = paste(gsub(".average","",input$typeeval_spid), "of",input$family_filt_spid, "at", doses2, "ug/mL")
           }else{
-            title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,"and", input$family_filt_spid2, "at", doses2, "ug/mL")
+            title_spid = paste(gsub(".average","",input$typeeval_spid), "of",input$family_filt_spid,"and", input$family_filt_spid2, "at", doses2, "ug/mL")
           }
           
           
         }else{
           req(input$family_filt_spid3, input$model_filt_spid3, input$dose_filt_spid3, input$purif_filt_spid3)
           #third sample
-          validate(need(paste(input$family_filt_spid2,input$dose_filt_spid2,input$purif_filt_spid2) != paste(input$family_filt_spid3,input$dose_filt_spid3,input$purif_filt_spid3), "Please select a different product, dose or purification."))
-          validate(need(paste(input$family_filt_spid,input$dose_filt_spid,input$purif_filt_spid) != paste(input$family_filt_spid3,input$dose_filt_spid3,input$purif_filt_spid3), "Please select a different product, dose or purification."))
+          validate(need(paste(input$model_filt_spid2,input$family_filt_spid2,input$dose_filt_spid2,input$purif_filt_spid2) != paste(input$model_filt_spid3,input$family_filt_spid3,input$dose_filt_spid3,input$purif_filt_spid3), "Please select a different product, dose or purification."))
+          validate(need(paste(input$model_filt_spid,input$family_filt_spid,input$dose_filt_spid,input$purif_filt_spid) != paste(input$model_filt_spid3,input$family_filt_spid3,input$dose_filt_spid3,input$purif_filt_spid3), "Please select a different product, dose or purification."))
           
           data_plot3 = data() %>% dplyr::filter(Model_type == input$model_filt_spid3) %>% dplyr::filter(Product_Family == input$family_filt_spid3) %>% 
             dplyr::filter(Dose == input$dose_filt_spid3) %>% dplyr::filter(Purification == input$purif_filt_spid3) %>% 
@@ -294,10 +302,10 @@ mod_spiderplot_server <- function(id, data, type_data){
           doses3 = ifelse(length(doses3) == 2, paste0(doses3[1], " and ", doses3[2]), 
                           ifelse(length(doses3) == 3, paste0(doses3[1], ", ", doses3[2], " and ",doses3[3] ), doses3))
           if(length(unique(c(input$family_filt_spid, input$family_filt_spid2, input$family_filt_spid3))) == 3){
-            title_spid = paste(input$typeeval_spid, "of",input$family_filt_spid,",", input$family_filt_spid2, "and", input$family_filt_spid3,
+            title_spid = paste(gsub(".average","",input$typeeval_spid), "of",input$family_filt_spid,",", input$family_filt_spid2, "and", input$family_filt_spid3,
                                "at", doses3, "ug/mL")
           }else{
-            title_spid = paste(input$typeeval_spid, "of", paste0(unique(c(input$family_filt_spid, input$family_filt_spid2, input$family_filt_spid3)), collapse = " and "),
+            title_spid = paste(gsub(".average","",input$typeeval_spid), "of", paste0(unique(c(input$family_filt_spid, input$family_filt_spid2, input$family_filt_spid3)), collapse = " and "),
                                "at", doses3, "ug/mL")
           }
           

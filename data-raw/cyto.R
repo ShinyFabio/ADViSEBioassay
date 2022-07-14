@@ -10,43 +10,11 @@ Target_file <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/TARGET_FILE 
 
 
 ##check target file
-to_rem = NULL
-for(i in unique(Target_file$Experiment_id)){
-  expid = Target_file %>% dplyr::filter(Experiment_id == i)
-  
-  if("Support_type" %in% colnames(expid)){
-    #check id with support type
-    num_supp = unique(expid$Support_type)
-    if(length(num_supp) > 1){
-      print(paste0("There are more than one Support type (",num_supp, ") for the ", i, " and will be removed. Check the target file."))
-      to_rem = c(to_rem, i)
-    }
-  }
-  
-  #check well numbers in the plate
-  if(length(expid$Well) != 96){
-    print(paste0("For ", i, " there are ",length(expid$Well)," while they should be 96. This experiment will be removed. Check the target file."))
-    to_rem = c(to_rem, i)
-  }
-  #check well replicates
-  if(length(unique(expid$Well)) != length(expid$Well)){
-    dup_wells = expid[duplicated(expid$Well),]$Well
-    print(paste0("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file."))
-    to_rem = c(to_rem, i)
-  }
-}
+Target_file = check_targetfile(Target_file, Experiment_list)
 
-if(!is.null(to_rem)){
-  message("Check target file: something to remove!")
-  Target_file = Target_file %>% dplyr::filter(!(Experiment_id %in% unique(to_rem)))
-}else{
-  message("Check target file: OK!")
-}
 
 
 #### eval cytotox
-
-check_files = paste0(Experiment_list$Path, Experiment_list$File)
 
 file_list <- unlist(strsplit(Experiment_list$File, split = ","))
 
@@ -101,7 +69,7 @@ if (!all(file_list %in% list.files(unique(Experiment_list$Path)))){
   names(processed.experiment) = expid
   myprocesseddata = tibble::as_tibble(data.table::rbindlist(processed.experiment,use.names=TRUE))
   
-  col_to_check = c("Model_type","Model_Family", "Product_Family")
+  col_to_check = c("Model_type","Model_Family", "Product_Family", "Product")
   
   err = 0
   for(i in col_to_check){

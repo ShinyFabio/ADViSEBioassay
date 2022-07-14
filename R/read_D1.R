@@ -9,10 +9,9 @@
 #' @importFrom dplyr left_join
 #' @importFrom readxl read_excel
 #' @importFrom janitor remove_empty
-#' @importFrom shiny showNotification
 #' @importFrom stringr str_replace str_split_fixed
 #' @importFrom htmltools HTML
-#' @importFrom shiny isRunning
+#' @importFrom shiny isRunning showNotification
 #'
 
 

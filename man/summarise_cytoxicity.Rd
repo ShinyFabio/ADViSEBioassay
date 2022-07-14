@@ -16,7 +16,7 @@ summarise_cytoxicity(
 
 \item{group}{Column used for the grouping. The columns in group will not be removed.}
 
-\item{method}{Charcter. Can be "cyto", "d1" or "trem".}
+\item{method}{Charcter. Can be "cyto", "d1","trem" or "seap".}
 }
 \description{
 \code{summarise_cytoxicity} draw multiple break line (br())

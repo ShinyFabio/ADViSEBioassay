@@ -1,3 +1,22 @@
+#' read_TREM2
+#'
+#' @description \code{read_TREM2} Read D1 data
+#'
+#' @param file_explist The row of the experiment list of that sample (i.e. the experiment list filtered by EXPID)
+#' @param file_target The row of the target file of that sample (i.e. the target file filtered by EXPID)
+#' @param filter.na A column where the NA filtering is performed. By default is Product.
+#'
+#' @importFrom dplyr group_by summarise filter n left_join
+#' @importFrom readxl read_excel
+#' @importFrom janitor remove_empty
+#' @importFrom readr type_convert
+#' @importFrom stringr str_replace str_split_fixed
+#' @importFrom htmltools HTML
+#' @importFrom shiny isRunning showNotification
+#' @importFrom tidyr pivot_wider
+#' @importFrom tibble add_column
+#'
+
 
 
 read_TREM2 = function(file_explist, file_target, filter.na = "Product"){

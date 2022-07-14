@@ -54,7 +54,7 @@ make_heatmap = function(data,
                         typeeval_heat = "Cytotoxicity.average"){
   
   if(order_data == TRUE){
-    data = order_data(data, as_factor = FALSE)
+    data = order_data(data, as_factor = FALSE, var_to_order = add_rowannot)
   }
 
 
@@ -132,9 +132,11 @@ getPalette = grDevices::colorRampPalette(RColorBrewer::brewer.pal(12, "Paired"))
 
 
 #row annotation
-if(!is.null(add_rowannot)){
+if(is.null(add_rowannot) || add_rowannot == ""){
+  row_ha = NULL
+}else{
   
-  roww = data_for_annotcol %>% dplyr::select(Model_type, add_rowannot) 
+  roww = data_for_annotcol %>% dplyr::select(Model_type, dplyr::all_of(add_rowannot))
   row_ha = c()
   for(i in add_rowannot){
     
@@ -159,14 +161,12 @@ if(!is.null(add_rowannot)){
     }
   }
 
-}else{
-  row_ha = NULL
 }
 
 
 #col annotation
 if(!is.null(add_colannot)){
-  annotdata_col = data_for_annotcol %>% dplyr::select(Product, add_colannot) %>% dplyr::distinct() %>% tibble::column_to_rownames("Product")
+  annotdata_col = data_for_annotcol %>% dplyr::select(Product, dplyr::all_of(add_colannot)) %>% dplyr::distinct() %>% tibble::column_to_rownames("Product")
   leng_col = annotdata_col %>% table() %>% length()
   colorannot_col = stats::setNames(getPalette(leng_col), c(row.names(table(annotdata_col))))
   colorannot_col = stats::setNames(list(colorannot_col), paste(add_colannot))

@@ -143,7 +143,7 @@ app_server <- function( input, output, session ) {
 
   
   #### update data if present
-  cyto_from_mod = mod_load_cyto_server("load_cyto_mod", data_type = "cyto")
+  cyto_from_mod = mod_load_cyto_server("load_cyto_mod", data_type = reactive("cyto"))
   
   
   #check data correctly loaded
@@ -165,10 +165,19 @@ app_server <- function( input, output, session ) {
 
   observeEvent(input$update_cyto_bttn,{
     if(!is.null(cyto_from_mod())){
-      loaded_database_cyto(update_database(old_data = loaded_database_cyto1(), new_data = cyto_from_mod()))
-      shinyWidgets::sendSweetAlert(title = "Merging completed!", type = "success",
-                                   text = "New data loaded! Click on 'Save database' if you want to store the changes.")
-      showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+      new_data = update_database(old_data = loaded_database_cyto1(), new_data = cyto_from_mod())
+      if(!is.null(new_data)){
+        if(new_data == 0){
+          shinyWidgets::sendSweetAlert(title = "Nothing to merge!", type = "warning",
+                                       text = "The experiments in the new data are alredy present in the database.")
+        }else{
+          loaded_database_cyto(new_data)
+          shinyWidgets::sendSweetAlert(title = "Merging completed!", type = "success",
+                                       text = "New data loaded! Click on 'Save database' if you want to store the changes.")
+          showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+        }
+      }
+
     }
   })
   
@@ -683,7 +692,8 @@ app_server <- function( input, output, session ) {
   
   
   observeEvent(heat_informative(),{
-    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heat_informative(), heatmap_id  = "heatmap_inform_output")
+    InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, heat_informative(), output_id  = "heatmap_inform_output",
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 800)
   })
   
   
@@ -795,340 +805,348 @@ app_server <- function( input, output, session ) {
   
   ##### bubbleplot ####
   
-  mod_bubble_plot_server("bubbleplot_cyto", data = data)
+  mod_bubble_plot_server("bubbleplot_cyto", data = data, type_data = reactive("cyto"))
   
  
   
   
   ##### heatmap ####
   
-  prod_total = reactive({
-    req(data())
-    data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+  
+  data_heatmap_cyto = mod_heatmap_cyto_repo_server("heatmap_cyto", data = data, data_type = reactive("cyto"))
+  
+  observeEvent(data_heatmap_cyto(),{
+    InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, data_heatmap_cyto(), output_id  = "heatmap_output_cyto",
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600)
   })
   
-  # DATA STORAGE
-  values_comb_heat <- reactiveValues(
-    comb = NULL # original data
-  )
-
-  observeEvent(prod_total(),{
-    updateSelectInput(session, "prod_filt_heatmap", choices = unique(prod_total()$Product_Family))
-  })
-  
-  #purification filtering
-  observeEvent(input$prod_filt_heatmap,{
-    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-    updateSelectInput(session, "purif_filt_heat", choices = unique(doses$Purification), selected = unique(doses$Purification)[1])
-  })
-  
-  
-  observeEvent(c(input$prod_filt_heatmap, input$purif_filt_heat),{
-    req(input$prod_filt_heatmap)
-    req(input$purif_filt_heat)
-    
-    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
-      dplyr::filter(Purification %in% input$purif_filt_heat)
-    
-    #row filtering
-    updateSelectInput(session, "mod_filt_heatmap", choices = c("All", unique(doses$Model_type)), selected = "All")
-    
-    #column filtering
-    updateSelectInput(session, "column_filt_heatmap", choices = c("All", "CTRL", "CTRL+", input$prod_filt_heatmap), selected = "All")
-    
-    updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
-    updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
-    
-    if(length(unique(doses$Experiment_id)) > length(unique(doses$Model_type))){
-      updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
-    }else{
-      updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
-    }
-  })
-  
-  
-  
-  #### for doses
-  observeEvent(input$column_filt_bubb,{
-    if(input$column_filt_heatmap %in% input$prod_filt_heatmap || "All" %in% input$column_filt_heatmap){
-      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean", "subtract"))
-    }else{
-      updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean"))
-    }
-  })
-  
-  
-  observe({
-    doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
-      dplyr::filter(Purification %in% input$purif_filt_heat)
-    
-    if(!("All" %in% input$mod_filt_heatmap)){
-      doses = dplyr::filter(doses, Model_type %in% input$mod_filt_heatmap)
-    }
-    
-    values_comb_heat$comb <- rev(sort(unique(doses$Dose)))
-    updateRadioButtons(session, "filt_dose_bubb", choices = c("All",sort(unique(doses$Dose))),inline = TRUE)
-    
-  })
-  
-  
-  observeEvent(input$revdose_bubb,{
-    values_comb_heat$comb <- rev(values_comb_heat$comb)
-  })
-  
-  observeEvent(values_comb_heat$comb,{
-    req(values_comb_heat$comb)
-    if(!is.null(values_comb_heat$comb)){
-      combin = utils::combn(values_comb_heat$comb, 2, paste, collapse = '-')
-      updateSelectInput(session, "subdose_heatmap", choices = combin)
-    }
-  })
-  
-  
-
+  # prod_total = reactive({
+  #   req(data())
+  #   data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) 
+  # })
+  # 
+  # # DATA STORAGE
+  # values_comb_heat <- reactiveValues(
+  #   comb = NULL # original data
+  # )
+  # 
+  # observeEvent(prod_total(),{
+  #   updateSelectInput(session, "prod_filt_heatmap", choices = unique(prod_total()$Product_Family))
+  # })
+  # 
+  # #purification filtering
   # observeEvent(input$prod_filt_heatmap,{
   #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+  #   updateSelectInput(session, "purif_filt_heat", choices = unique(doses$Purification), selected = unique(doses$Purification)[1])
+  # })
+  # 
+  # 
+  # observeEvent(c(input$prod_filt_heatmap, input$purif_filt_heat),{
+  #   req(input$prod_filt_heatmap)
+  #   req(input$purif_filt_heat)
+  #   
+  #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+  #     dplyr::filter(Purification %in% input$purif_filt_heat)
+  #   
+  #   #row filtering
+  #   updateSelectInput(session, "mod_filt_heatmap", choices = c("All", unique(doses$Model_type)), selected = "All")
+  #   
+  #   #column filtering
+  #   updateSelectInput(session, "column_filt_heatmap", choices = c("All", "CTRL", "CTRL+", input$prod_filt_heatmap), selected = "All")
+  #   
   #   updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
   #   updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
   #   
-  #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
-  #   if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
+  #   if(length(unique(doses$Experiment_id)) > length(unique(doses$Model_type))){
   #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
   #   }else{
   #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
   #   }
-  #   
-  #   
-  # })
-
-
-  
-
-  # #slider for columns
-  # output$sliderheatcol <- renderUI({
-  #   req(dataforheatmap())
-  #   len = SummarizedExperiment::rowData(dataforheatmap())$Class %>% unique() %>% length() #numero di lipidi (poi si ruota)
-  #   sliderInput("slidercolheat", "Column cluster number:", min=2, max = len, value=2, step = 1)
   # })
   # 
-  # #slider for rows
-  # output$sliderheatrow <- renderUI({
-  #   req(dataforheatmap())
-  #   len = SummarizedExperiment::colData(dataforheatmap())$SampleID %>% unique() %>% length() #numero di sample (poi si ruota)
-  #   sliderInput("sliderrowheat", "Row cluster number:", min = 2, max = len, value = 2, step = 1)
+  # 
+  # 
+  # #### for doses
+  # observeEvent(input$column_filt_bubb,{
+  #   if(input$column_filt_heatmap %in% input$prod_filt_heatmap || "All" %in% input$column_filt_heatmap){
+  #     updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean", "subtract"))
+  #   }else{
+  #     updateSelectInput(session, "dose_op_heatmap", choices = c("filter", "mean"))
+  #   }
   # })
   # 
-  
-
-  
-  data_heatmap = reactive({
-    req(prod_total())
-    
-    CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
-      dplyr::filter(Purification %in% input$purif_filt_heat)
-    
-    ### model type filtering
-    if(is.null(input$mod_filt_heatmap)){
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
-      validate(need(input$mod_filt_heatmap, "Select something in the model type filtering."))
-    }
-    
-    if(!("All" %in% input$mod_filt_heatmap)){
-      if(length(input$mod_filt_heatmap) < 2 && input$rowdend == TRUE){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
-        validate(need(length(input$mod_filt_heatmap) > 2, "Select at least two model types or disable row clustering."))
-      }
-      CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_heatmap)
-    }
-    
-    #control
-    filt_cnt = data() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
-      dplyr::filter(Experiment_id %in% unique(CBC150$Experiment_id)) %>%
-      tidyr::unite("Product", Product, Dose, sep = " ")
-    
-    #measure type
-    type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
-    
-    ###filtering option
-    if(input$dose_op_heatmap == "filter"){
-      cbc_filtered = split(CBC150, f = ~Dose) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt))
-      
-
-      cbc_filtered = lapply(cbc_filtered, function(x){
-        if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
-          showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-                                                           Duplicated will be averaged.")), type = "default")
-          x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-            dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
-        }else{x}
-      })
-      
-      #####mean option
-    }else if(input$dose_op_heatmap == "mean"){
-      
-      cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))))%>% 
-        dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup() %>% 
-        dplyr::bind_rows(filt_cnt)
-      
-      if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
-        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-                                                    Duplicated will be averaged.")), type = "default")
-        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-          dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
-      }
-      
-      ##### subtract option
-    }else{
-      combination = strsplit(input$subdose_heatmap, "-")
-      cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
-        dplyr::summarise(across(where(is.double), ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
-        dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
-      
-      if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
-        showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
-                                                    Duplicated will be averaged.")), type = "default")
-        cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
-          dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
-      }
-      
-    }
-    
-    #cbc_filtered
-    ##column (product) filtering
-    if(is.null(input$column_filt_heatmap)){
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
-      validate(need(input$column_filt_heatmap, "Select something in the product (columns) filtering."))
-    }
-
-    if(!("All" %in% input$column_filt_heatmap)){
-      if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
-        validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
-      }
-      if(class(cbc_filtered)[1] == "list"){
-        lapply(cbc_filtered, function(x) x %>% dplyr::filter(Product_Family %in% input$column_filt_heatmap))
-      }else{
-        dplyr::filter(cbc_filtered, Product_Family %in% input$column_filt_heatmap)
-      }
-    }else{
-      cbc_filtered
-    }
-
-  })
-  
-  
-  heatmap = eventReactive(input$makeheatmap,{
-    req(data_heatmap())
-    
-    if(!("All" %in% input$column_filt_heatmap)){
-      if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
-        validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
-      }
-    }
-
-    
-    ht_list = NULL
-    #measure type
-    type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
-    
-    if(input$dose_op_heatmap == "filter"){
-      
-      if(input$filt_dose == "All"){
-        doses = as.character(names(data_heatmap()))
-      }else{
-        doses = as.character(input$filt_dose)
-      }
-      for (i in doses){
-        ht_list = ht_list + make_heatmap(
-          data = as.data.frame(data_heatmap()[[i]]),
-          add_rowannot = input$selectannot_row,
-          add_colannot = input$selectannot_col,
-          title = paste(input$prod_filt_heatmap,i,"ug/mL"),
-          order_data = input$heatsort,
-          row_dend = input$rowdend, 
-          row_nclust = input$sliderrowheat, 
-          col_dend = input$columndend, 
-          col_nclust = input$slidercolheat, 
-          dist_method = input$seldistheat, 
-          clust_method = input$selhclustheat, 
-          unit_legend = paste("%",input$typeeval_heat,i,"ug/mL"),
-          add_values = input$show_valheat,
-          thresh_values = input$range_showvalheat,
-          typeeval_heat = type_meas
-        )
-      }
-    }else if(input$dose_op_heatmap == "mean"){
-      ht_list = make_heatmap(
-        data = data_heatmap(),
-        add_rowannot = input$selectannot_row,
-        add_colannot = input$selectannot_col,
-        title = paste(input$prod_filt_heatmap),
-        order_data = input$heatsort,
-        row_dend = input$rowdend, 
-        row_nclust = input$sliderrowheat, 
-        col_dend = input$columndend, 
-        col_nclust = input$slidercolheat, 
-        dist_method = input$seldistheat, 
-        clust_method = input$selhclustheat, 
-        unit_legend = paste("%",input$typeeval_heat),
-        add_values = input$show_valheat,
-        thresh_values = input$range_showvalheat,
-        typeeval_heat = type_meas
-      )
-    }else{
-      ht_list = make_heatmap(
-        data = data_heatmap(),
-        add_rowannot = input$selectannot_row,
-        add_colannot = input$selectannot_col,
-        title = paste(input$prod_filt_heatmap,input$subdose_heatmap,"ug/mL"),
-        order_data = input$heatsort,
-        row_dend = input$rowdend, 
-        row_nclust = input$sliderrowheat, 
-        col_dend = input$columndend, 
-        col_nclust = input$slidercolheat, 
-        dist_method = input$seldistheat, 
-        clust_method = input$selhclustheat, 
-        unit_legend = paste("%",input$typeeval_heat),
-        color_scale = circlize::colorRamp2(c(-100, 0, 100), c("green","white", "red")),
-        add_values = input$show_valheat,
-        thresh_values = input$range_showvalheat,
-        typeeval_heat = type_meas
-      )
-    }
-    ComplexHeatmap::draw(ht_list, merge_legend = TRUE, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(3, "cm"))
-  })
-  
- 
-
-  observeEvent(heatmap(),{
-    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heatmap(), heatmap_id  = "heatmap_output")
-  })
-
-  
-  output$dt_heatmap = renderDT({
-    req(data_heatmap())
-    if(input$dose_op_heatmap == "filter"){
-      data_heatmap()[[input$dose_dtheatmap]] %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
-    }else{
-      data_heatmap() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
-    }
-  })
-  
-  
-  #### Download handler for the download button
-  output$download_heat <- downloadHandler(
-    #put the file name with also the file extension
-    filename = function() {
-      paste0("Data_heatmap", Sys.Date(), ".xlsx")
-    },
-    
-    # This function should write data to a file given to it by the argument 'file'.
-    content = function(file) {
-      openxlsx::write.xlsx(data_heatmap(), file)
-    }
-  )
-  
+  # 
+  # observe({
+  #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+  #     dplyr::filter(Purification %in% input$purif_filt_heat)
+  #   
+  #   if(!("All" %in% input$mod_filt_heatmap)){
+  #     doses = dplyr::filter(doses, Model_type %in% input$mod_filt_heatmap)
+  #   }
+  #   
+  #   values_comb_heat$comb <- rev(sort(unique(doses$Dose)))
+  #   updateRadioButtons(session, "filt_dose_bubb", choices = c("All",sort(unique(doses$Dose))),inline = TRUE)
+  #   
+  # })
+  # 
+  # 
+  # observeEvent(input$revdose_bubb,{
+  #   values_comb_heat$comb <- rev(values_comb_heat$comb)
+  # })
+  # 
+  # observeEvent(values_comb_heat$comb,{
+  #   req(values_comb_heat$comb)
+  #   if(!is.null(values_comb_heat$comb)){
+  #     combin = utils::combn(values_comb_heat$comb, 2, paste, collapse = '-')
+  #     updateSelectInput(session, "subdose_heatmap", choices = combin)
+  #   }
+  # })
+  # 
+  # 
+  # 
+  # # observeEvent(input$prod_filt_heatmap,{
+  # #   doses = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+  # #   updateRadioButtons(session, "filt_dose", choices = c("All",unique(doses$Dose)),inline = TRUE)
+  # #   updateSelectInput(session, "dose_dtheatmap", choices = unique(doses$Dose))
+  # #   
+  # #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap)
+  # #   if(length(unique(CBC150$Experiment_id)) > length(unique(CBC150$Model_type))){
+  # #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family", "Corrected_value"), selected = "Model_Family")
+  # #   }else{
+  # #     updateSelectInput(session, "selectannot_row", choices = c("Model_Family","Experiment_id","Corrected_value"), selected = "Model_Family")
+  # #   }
+  # #   
+  # #   
+  # # })
+  # 
+  # 
+  # 
+  # 
+  # # #slider for columns
+  # # output$sliderheatcol <- renderUI({
+  # #   req(dataforheatmap())
+  # #   len = SummarizedExperiment::rowData(dataforheatmap())$Class %>% unique() %>% length() #numero di lipidi (poi si ruota)
+  # #   sliderInput("slidercolheat", "Column cluster number:", min=2, max = len, value=2, step = 1)
+  # # })
+  # # 
+  # # #slider for rows
+  # # output$sliderheatrow <- renderUI({
+  # #   req(dataforheatmap())
+  # #   len = SummarizedExperiment::colData(dataforheatmap())$SampleID %>% unique() %>% length() #numero di sample (poi si ruota)
+  # #   sliderInput("sliderrowheat", "Row cluster number:", min = 2, max = len, value = 2, step = 1)
+  # # })
+  # # 
+  # 
+  # 
+  # 
+  # data_heatmap = reactive({
+  #   req(prod_total())
+  #   
+  #   CBC150 = prod_total() %>% dplyr::filter(Product_Family == input$prod_filt_heatmap) %>% 
+  #     dplyr::filter(Purification %in% input$purif_filt_heat)
+  #   
+  #   ### model type filtering
+  #   if(is.null(input$mod_filt_heatmap)){
+  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
+  #     validate(need(input$mod_filt_heatmap, "Select something in the model type filtering."))
+  #   }
+  #   
+  #   if(!("All" %in% input$mod_filt_heatmap)){
+  #     if(length(input$mod_filt_heatmap) < 2 && input$rowdend == TRUE){
+  #       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
+  #       validate(need(length(input$mod_filt_heatmap) > 2, "Select at least two model types or disable row clustering."))
+  #     }
+  #     CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_heatmap)
+  #   }
+  #   
+  #   #control
+  #   filt_cnt = data() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.))) %>%
+  #     dplyr::filter(Experiment_id %in% unique(CBC150$Experiment_id)) %>%
+  #     tidyr::unite("Product", Product, Dose, sep = " ")
+  #   
+  #   #measure type
+  #   type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+  #   
+  #   ###filtering option
+  #   if(input$dose_op_heatmap == "filter"){
+  #     cbc_filtered = split(CBC150, f = ~Dose) %>% lapply( function(x) dplyr::bind_rows(x, filt_cnt))
+  #     
+  # 
+  #     cbc_filtered = lapply(cbc_filtered, function(x){
+  #       if(length(unique(x$Experiment_id)) > length(unique(x$Model_type))){
+  #         showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                          Duplicated will be averaged.")), type = "default")
+  #         x %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #           dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
+  #       }else{x}
+  #     })
+  #     
+  #     #####mean option
+  #   }else if(input$dose_op_heatmap == "mean"){
+  #     
+  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric))))%>% 
+  #       dplyr::summarise(across(where(is.double) & !Dose, mean, na.rm = T)) %>% dplyr::ungroup() %>% 
+  #       dplyr::bind_rows(filt_cnt)
+  #     
+  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
+  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                   Duplicated will be averaged.")), type = "default")
+  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #         dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
+  #     }
+  #     
+  #     ##### subtract option
+  #   }else{
+  #     combination = strsplit(input$subdose_heatmap, "-")
+  #     cbc_filtered = CBC150 %>% dplyr::group_by(across(-c(where(is.numeric)))) %>% 
+  #       dplyr::summarise(across(where(is.double), ~ .x[Dose == combination[[1]][1]] - .x[Dose == combination[[1]][2]], na.rm = T)) %>% 
+  #       dplyr::ungroup() %>% dplyr::bind_rows(filt_cnt)
+  #     
+  #     if(length(unique(cbc_filtered$Experiment_id)) > length(unique(cbc_filtered$Model_type))){
+  #       showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for the same Model_type.
+  #                                                   Duplicated will be averaged.")), type = "default")
+  #       cbc_filtered = cbc_filtered %>% dplyr::group_by(across(-c(Experiment_id, where(is.numeric)))) %>% 
+  #         dplyr::summarise(across(where(is.double), mean, na.rm = T)) %>% dplyr::ungroup()
+  #     }
+  #     
+  #   }
+  #   
+  #   #cbc_filtered
+  #   ##column (product) filtering
+  #   if(is.null(input$column_filt_heatmap)){
+  #     showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
+  #     validate(need(input$column_filt_heatmap, "Select something in the product (columns) filtering."))
+  #   }
+  # 
+  #   if(!("All" %in% input$column_filt_heatmap)){
+  #     if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
+  #       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+  #       validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
+  #     }
+  #     if(class(cbc_filtered)[1] == "list"){
+  #       lapply(cbc_filtered, function(x) x %>% dplyr::filter(Product_Family %in% input$column_filt_heatmap))
+  #     }else{
+  #       dplyr::filter(cbc_filtered, Product_Family %in% input$column_filt_heatmap)
+  #     }
+  #   }else{
+  #     cbc_filtered
+  #   }
+  # 
+  # })
+  # 
+  # 
+  # heatmap = eventReactive(input$makeheatmap,{
+  #   req(data_heatmap())
+  #   
+  #   if(!("All" %in% input$column_filt_heatmap)){
+  #     if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
+  #       showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+  #       validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
+  #     }
+  #   }
+  # 
+  #   
+  #   ht_list = NULL
+  #   #measure type
+  #   type_meas = ifelse(input$typeeval_heat == "Cytotoxicity", "Cytotoxicity.average", "Vitality.average")
+  #   
+  #   if(input$dose_op_heatmap == "filter"){
+  #     
+  #     if(input$filt_dose == "All"){
+  #       doses = as.character(names(data_heatmap()))
+  #     }else{
+  #       doses = as.character(input$filt_dose)
+  #     }
+  #     for (i in doses){
+  #       ht_list = ht_list + make_heatmap(
+  #         data = as.data.frame(data_heatmap()[[i]]),
+  #         add_rowannot = input$selectannot_row,
+  #         add_colannot = input$selectannot_col,
+  #         title = paste(input$prod_filt_heatmap,i,"ug/mL"),
+  #         order_data = input$heatsort,
+  #         row_dend = input$rowdend, 
+  #         row_nclust = input$sliderrowheat, 
+  #         col_dend = input$columndend, 
+  #         col_nclust = input$slidercolheat, 
+  #         dist_method = input$seldistheat, 
+  #         clust_method = input$selhclustheat, 
+  #         unit_legend = paste("%",input$typeeval_heat,i,"ug/mL"),
+  #         add_values = input$show_valheat,
+  #         thresh_values = input$range_showvalheat,
+  #         typeeval_heat = type_meas
+  #       )
+  #     }
+  #   }else if(input$dose_op_heatmap == "mean"){
+  #     ht_list = make_heatmap(
+  #       data = data_heatmap(),
+  #       add_rowannot = input$selectannot_row,
+  #       add_colannot = input$selectannot_col,
+  #       title = paste(input$prod_filt_heatmap),
+  #       order_data = input$heatsort,
+  #       row_dend = input$rowdend, 
+  #       row_nclust = input$sliderrowheat, 
+  #       col_dend = input$columndend, 
+  #       col_nclust = input$slidercolheat, 
+  #       dist_method = input$seldistheat, 
+  #       clust_method = input$selhclustheat, 
+  #       unit_legend = paste("%",input$typeeval_heat),
+  #       add_values = input$show_valheat,
+  #       thresh_values = input$range_showvalheat,
+  #       typeeval_heat = type_meas
+  #     )
+  #   }else{
+  #     ht_list = make_heatmap(
+  #       data = data_heatmap(),
+  #       add_rowannot = input$selectannot_row,
+  #       add_colannot = input$selectannot_col,
+  #       title = paste(input$prod_filt_heatmap,input$subdose_heatmap,"ug/mL"),
+  #       order_data = input$heatsort,
+  #       row_dend = input$rowdend, 
+  #       row_nclust = input$sliderrowheat, 
+  #       col_dend = input$columndend, 
+  #       col_nclust = input$slidercolheat, 
+  #       dist_method = input$seldistheat, 
+  #       clust_method = input$selhclustheat, 
+  #       unit_legend = paste("%",input$typeeval_heat),
+  #       color_scale = circlize::colorRamp2(c(-100, 0, 100), c("green","white", "red")),
+  #       add_values = input$show_valheat,
+  #       thresh_values = input$range_showvalheat,
+  #       typeeval_heat = type_meas
+  #     )
+  #   }
+  #   ComplexHeatmap::draw(ht_list, merge_legend = TRUE, padding = grid::unit(c(2,2,2,15), "mm"), ht_gap = grid::unit(3, "cm"))
+  # })
+  # 
+  # 
+  # 
+  # observeEvent(heatmap(),{
+  #   InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heatmap(), heatmap_id  = "heatmap_output")
+  # })
+  # 
+  # 
+  # output$dt_heatmap = renderDT({
+  #   req(data_heatmap())
+  #   if(input$dose_op_heatmap == "filter"){
+  #     data_heatmap()[[input$dose_dtheatmap]] %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+  #   }else{
+  #     data_heatmap() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+  #   }
+  # })
+  # 
+  # 
+  # #### Download handler for the download button
+  # output$download_heat <- downloadHandler(
+  #   #put the file name with also the file extension
+  #   filename = function() {
+  #     paste0("Data_heatmap", Sys.Date(), ".xlsx")
+  #   },
+  #   
+  #   # This function should write data to a file given to it by the argument 'file'.
+  #   content = function(file) {
+  #     openxlsx::write.xlsx(data_heatmap(), file)
+  #   }
+  # )
+  # 
   
   ####barplot ####
   
@@ -1283,7 +1301,7 @@ app_server <- function( input, output, session ) {
   
   #### Spider plot ####
   
-  mod_spiderplot_server("spiderplot_cyto", data = data, type_data = "cyto")
+  mod_spiderplot_server("spiderplot_cyto", data = data, type_data = reactive("cyto"))
 
   
 ######## D1 ########
@@ -1360,7 +1378,7 @@ app_server <- function( input, output, session ) {
   
   
   #### update data D1 if present ####
-  D1_from_mod = mod_load_cyto_server("load_D1_mod", data_type = "D1")
+  D1_from_mod = mod_load_cyto_server("load_D1_mod", data_type = reactive("D1"))
   
   
   #check data correctly loaded
@@ -1770,6 +1788,7 @@ app_server <- function( input, output, session ) {
     req(dataquery_D1())
     validate(need(input$selcol_query_d1, "Select something in the MFI selection."))
     
+
     mydataset_D1 = dataquery_D1()
     cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
     
@@ -1798,7 +1817,7 @@ app_server <- function( input, output, session ) {
       
       temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
     }
-    
+    #saveRDS(temp, "temp.rds")
     if(length(input$selcol_query_d1) > 1){
       raw = Reduce(intersect, temp)
     }else{
@@ -1816,6 +1835,14 @@ app_server <- function( input, output, session ) {
     
     
     summ = raw %>% group_by(Model_type, Product_Family) %>% dplyr::summarise(n_products = n())
+    
+    # if(input$andor_query_d1 == "AND"){
+    #   joined = summ %>% #temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
+    #     dplyr::filter(n == length(input$filtmod_query_cyto)) %>% dplyr::pull(Product_Family)
+    #   
+    #   temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
+    # }
+    
     
     list(raw = raw, summ = summ)
     
@@ -1848,6 +1875,7 @@ app_server <- function( input, output, session ) {
   
   observeEvent(data_notsumm_D1(),{
     updateSelectInput(session, "typeeval_bar_D1", choices = colnames(dplyr::select(data_notsumm_D1(), where(is.double),-Dose)))
+    updateSelectInput(session, "typeeval_bar2_D1", choices = colnames(dplyr::select(data_notsumm_D1(), where(is.double),-Dose)))
   })
   
   
@@ -1999,10 +2027,10 @@ app_server <- function( input, output, session ) {
   
   ##### spiderplot d1 ####
   
-  mod_spiderplot_server("spiderplot_D1", data = data_D1, type_data = "D1")
+  mod_spiderplot_server("spiderplot_D1", data = data_D1, type_data = reactive("D1"))
   
   ##### bubbleplot d1 #####
-  mod_bubble_plot_server("bubbleplot_D1", data = data_D1, type_data = "D1")
+  mod_bubble_plot_server("bubbleplot_D1", data = data_D1, type_data = reactive("D1"))
   
   
   ##### heatmap D1 ####
@@ -2303,7 +2331,8 @@ app_server <- function( input, output, session ) {
 
 
   observeEvent(heatmap_D1(),{
-    InteractiveComplexHeatmap::makeInteractiveComplexHeatmap(input, output, session, heatmap_D1(), heatmap_id  = "heatmap_D1_output")
+    InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, heatmap_D1(), output_id  = "heatmap_D1_output",
+                                                               layout = "1|(2-3)", width1 = 650, height1 = 700)
   })
 
 
@@ -2311,22 +2340,31 @@ app_server <- function( input, output, session ) {
   
   ###### Reporter ########
   
-  repo_data1 = reactiveVal() #database_repo
-  
+  repo_data1 = reactiveValues(
+    trem2 = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_trem2.rda"))) database_trem2 else{NULL},
+         seap = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_seap.rda"))) database_seap else{NULL}
+  )
+
   observe({
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/repo/database_updated_repo.rds")
+    filepath_trem2 = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/TREM2/database_updated_TREM2.rds")
     
-    if(file.exists(filepath) == TRUE){
-      repo_data1(readRDS(filepath))
+    if(file.exists(filepath_trem2) == TRUE){
+      repo_data1$trem2 = readRDS(filepath_trem2)
+    }
+    
+    filepath_seap = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/SEAP/database_updated_SEAP.rds")
+    if(file.exists(filepath_seap) == TRUE){
+      repo_data1$seap = readRDS(filepath_seap)
     }
   })
   
+
   output$valbox_repo = renderUI({
-    if(is.null(repo_data1())){
+    if(all(is.null(repo_data1$trem2), is.null(repo_data1$seap))){
       box(width = 12, background = "yellow",
           fluidPage(
             fluidRow(
-              column(9, 
+              column(9,
                      h4(strong("Reporter data: "),style = "color: white"),
                      h5("No Reporter data present in database!", style = "color: white")),
               column(3, style = "padding-right: 0px; text-align: right;",
@@ -2335,13 +2373,15 @@ app_server <- function( input, output, session ) {
           )
       )
     }else{
-      n_az = repo_data1()$mydataset$Experiment_id %>% unique() %>% length()
+      ntrem = repo_data1$trem2$mydataset$Experiment_id %>% unique() %>% length()
+      nseap = repo_data1$seap$mydataset$Experiment_id %>% unique() %>% length()
       box(width = 12, background = "green",
           fluidPage(
             fluidRow(
-              column(9, 
+              column(9,
                      h4(strong("Reporter data: "),style = "color: white"),
-                     h5(strong(n_az), " experiments.", style = "color: white")),
+                     h5(strong("TREM2: ", ntrem), " experiments.", style = "color: white"),
+                     h5(strong("SEAP: ", nseap), " experiments.", style = "color: white")),
               column(3, style = "padding-right: 0px; text-align: right;",
                      tags$i(class = "fas fa-check", style="font-size: 50px;padding-top: 5px;padding-right: 15px;"))
             )
@@ -2349,5 +2389,699 @@ app_server <- function( input, output, session ) {
       )
     }
   })
+  
+  
+
+  ######carica il file TREM2
+  loaded_database_trem2 = eventReactive(input$loaddatabase,{
+    if(!is.null(repo_data1$trem2)){
+      showNotification(tagList(icon("info"), HTML("&nbsp;TREM2 data loading...")), type = "default")
+      return(repo_data1$trem2)
+    }else{
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
+      return(NULL)
+    }
+  })
+
+  observeEvent(loaded_database_trem2(),{
+    if(!is.null(loaded_database_trem2())){
+      showNotification(tagList(icon("check"), HTML("&nbsp;TREM2 data loaded!")), type = "message")
+    }
+  })
+
+
+
+  ##### carica il file SEAP
+  loaded_database_seap = eventReactive(input$loaddatabase,{
+    if(!is.null(repo_data1$seap)){
+      showNotification(tagList(icon("info"), HTML("&nbsp;TREM2 data loading...")), type = "default")
+      return(repo_data1$seap)
+    }else{
+      showNotification(tagList(icon("times-circle"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
+      return(NULL)
+    }
+  })
+  
+  observeEvent(loaded_database_seap(),{
+    if(!is.null(loaded_database_seap())){
+      showNotification(tagList(icon("check"), HTML("&nbsp;TREM2 data loaded!")), type = "message")
+    }
+  })
+  
+
+  
+  loaded_database_reporter_pre = reactiveVal()
+  
+  observeEvent(c(input$sel_reporter,input$loaddatabase),{
+    if(input$sel_reporter == "TREM2"){
+      loaded_database_reporter_pre(loaded_database_trem2())
+    }else{
+      loaded_database_reporter_pre(loaded_database_seap())
+    }
+  })
+  
+  
+  loaded_database_reporter = reactiveVal()
+  
+  observeEvent(loaded_database_reporter_pre(),{
+    loaded_database_reporter(loaded_database_reporter_pre())
+  })
+  
+  
+  
+  
+  #### update data Reporter if present ####
+  reporter_from_mod = mod_load_cyto_server("load_reporter_mod", data_type = reactive(input$sel_reporter))
+
+
+  #check data correctly loaded
+  output$check_data_updated_reporter = reactive(
+    return(is.null(reporter_from_mod()))
+  )
+  outputOptions(output, "check_data_updated_reporter", suspendWhenHidden = FALSE)
+  
+  output$newdata_reporter_DT = renderDT({
+    req(reporter_from_mod())
+    if(input$summ_viewtable_updated_reporter == TRUE){
+      reporter_from_mod()$mydataset %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }else{
+      reporter_from_mod()$myprocesseddata %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }
+  },options = list(scrollX = TRUE))
+  
+  
+  observeEvent(input$update_reporter_bttn,{
+    if(!is.null(reporter_from_mod())){
+      loaded_database_reporter(update_database(old_data = loaded_database_reporter_pre(), new_data = reporter_from_mod()))
+      showNotification(tagList(icon("check"), HTML("&nbsp;New data loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+    }
+  })
+  
+  
+
+  
+  
+  ##### Upload updated
+  
+  #Upload
+  observeEvent(input$upload_updated_reporter,{
+    showModal(modalDialog(
+      title = "Upload an existing database (.rds)",
+      footer = modalButton("Close"),
+      fluidRow(
+        column(8,fileInput("upload_file_reporter", "Upload a database (.rds)", accept = ".rds")),
+        conditionalPanel(
+          condition = "output.check_fileuploaded_reporter == true",
+          column(3,br(),actionButton("load_upload_file_reporter", "Load!", icon("rocket"),style='padding:10px; font-size:140%; font-weight: bold;'))
+        )
+      )
+    ))
+  })
+  
+  
+  output$check_fileuploaded_reporter <- reactive({
+    return(!is.null(input$upload_file_reporter))
+  }) 
+  outputOptions(output, 'check_fileuploaded_reporter', suspendWhenHidden=FALSE)
+  
+  
+  
+  
+  #import 
+  observeEvent(input$load_upload_file_reporter,{
+    req(input$upload_file_reporter)
+    ext <- tools::file_ext(input$upload_file_reporter$name)
+    if(ext != "rds"){
+      shinyWidgets::show_alert("Invalid file!", "Please upload a .rds file", type = "error")
+    }
+    validate(need(ext == "rds", "Invalid file! Please upload a .rds file"))
+    
+    file = readRDS(file = input$upload_file_reporter$datapath)
+    if(file$type == input$sel_reporter){
+      loaded_database_reporter(file)
+      showNotification(tagList(icon("check"), HTML("&nbsp;New database loaded! Click on 'Save database' if you want to store the changes.")), type = "message")
+    }else{
+      shinyWidgets::show_alert("Invalid file!", paste("You uploaded the database for",file$type, "while you should have upoaded the database for",input$sel_reporter), type = "error")
+    }
+    
+  })
+  
+  
+  
+  ##### SAVE Updated #####
+  
+  #check if something new is loaded otherwhise don't display the save button
+  output$check_ifsave_reporter = reactive({
+    checkdatabase = tryCatch({reporter_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    if(TRUE %in% c(!checkdatabase, input$load_upload_file_reporter > 0)){return(TRUE)}
+  })
+  outputOptions(output, "check_ifsave_reporter", suspendWhenHidden = FALSE)
+  
+  
+  
+  observeEvent(input$save_update_reporter,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmsave_reporter",
+      type = "warning",
+      title = "Do you want to save and update the internal database?",
+      text = h4("Be sure that everything works before update.
+      If you need to restore the original database, click on", strong("Restore Database."))
+    )
+  })
+  
+  
+  observeEvent(input$confirmsave_reporter,{
+    checkdatabase = tryCatch({loaded_database_reporter()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    
+    if(input$confirmsave_reporter == TRUE && checkdatabase == FALSE){
+      if(dim(loaded_database_reporter_pre()$exp_list)[1] == dim(loaded_database_reporter()$exp_list)[1]){
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+      }else{
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/")
+        if(dir.exists(filepath) == FALSE){
+          dir.create(filepath, recursive = TRUE)
+        }
+
+        saveRDS(loaded_database_reporter(), file = paste0(filepath,"database_updated_",input$sel_reporter,".rds")) 
+        #sarà in /reporter/SEAP/database_updated_SEAP.rds o l'altro
+        
+        #versione per cronologia
+        filever = paste0(filepath,input$sel_reporter,"_ver_",Sys.Date(),".rds") #sarà tipo SEAP_ver_05/04/2022
+        saveRDS(loaded_database_reporter(), file = filever)
+        
+        show_alert(
+          title = "Upload completed!",
+          text = "Please restart ADViSEBioassay to save the changes.",
+          type = "success"
+        ) 
+      }
+    }
+  })
+  
+  
+  ##### download updated reporter ######
+  
+  #check all data correctly loaded. If FALSE -> error.
+  output$checkupdated_reporter_fordownload = reactive({
+    checkdatabase = tryCatch({reporter_from_mod()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    check_file = file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/database_updated_",input$sel_reporter,".rds"))
+    if(TRUE %in% c(!checkdatabase, check_file)){return(TRUE)}
+  })
+  outputOptions(output, "checkupdated_reporter_fordownload", suspendWhenHidden = FALSE)
+  
+  
+  
+  #### Download handler for the download button
+  output$download_updated_reporter <- downloadHandler(
+    #put the file name with also the file extension
+    filename = function() {
+      paste0("updated_",input$sel_reporter,"_", Sys.Date(), ".rds")
+    },
+    
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+      data = loaded_database_reporter()
+      data$type = input$sel_reporter  #add the info of the datatype. will be another element of the list data$type...
+      saveRDS(data, file)
+    }
+  )
+  
+  
+  #### remove updated REPORTER #####
+  
+  
+  #modal restore
+  observeEvent(input$remove_update_reporter,{
+    showModal(modalDialog(
+      title = "Restore database",
+      footer = modalButton("Close"),
+      size = "l",
+      fluidRow(
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Restore database to a previous version", solidHeader = TRUE,
+              column(10,offset = 1, selectInput("ver_databases_reporter", "Select a database", choices = "")),
+              conditionalPanel(
+                condition = "input.ver_databases_reporter != ''",
+                actionButton("load_version_reporter", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              )
+          )
+          
+        ),
+        column(
+          6,style = "text-align:center;",
+          box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
+              br(),
+              actionButton("rest_to_original_reporter", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              br(),br(), br()
+          ))
+      )
+    ))
+  })
+  
+  
+  
+  
+  #### LOAD OLD VERSION
+  
+  observeEvent(input$remove_update_reporter,{
+    files = list.files(paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/"))
+    files = grep(paste0(input$sel_reporter,"_ver_"),files, value = TRUE)
+    updateSelectInput(session, "ver_databases_reporter", choices = files)
+  })
+  
+  
+  observeEvent(input$load_version_reporter,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmload_ver_reporter",
+      type = "warning",
+      title = "Do you want to load this version?",
+      text = h4("By clicking yes, this database version will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  observeEvent(input$confirmload_ver_reporter,{
+    filepath_ver = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/",input$ver_databases_reporter)
+    
+    if(isTRUE(input$confirmload_ver_reporter)){
+      if(file.exists(filepath_ver)){    
+        file = readRDS(filepath_ver)
+        filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/database_updated_",input$sel_reporter,".rds")
+        saveRDS(file, file = filepath)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+      }
+    }
+  })
+  
+  
+  
+  
+  ##### RESTORE
+  observeEvent(input$rest_to_original_reporter,{
+    shinyWidgets::ask_confirmation(
+      inputId = "confirmremove_reporter",
+      type = "warning",
+      title = "Do you want to restore the internal database?",
+      text = h4("By clicking yes, the original database will be restored. Please restart ADViSEBioassay to apply this change.")
+    )
+  })
+  
+  
+  observeEvent(input$confirmremove_reporter,{
+    
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/")
+    listf = list.files(filepath)
+    file_to_rem = sapply(listf, function(x) paste0(filepath,x))
+    
+    if(isTRUE(input$confirmremove_reporter)){
+      if(TRUE %in% file.exists(file_to_rem)){
+        file.remove(file_to_rem)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
+      }else{
+        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+      }
+    }
+    
+  })
+  
+  
+  
+  
+  
+  
+  
+  
+  ####
+  #load data
+  data_notsumm_reporter = reactive({
+    req(loaded_database_reporter())
+    loaded_database_reporter()$myprocesseddata
+  })
+  
+  data_reporter = reactive({
+    req(loaded_database_reporter())
+    loaded_database_reporter()$mydataset
+    #summarise_cytoxicity(data_notsumm_D1(), group = c("Experiment_id","Model_type", "Product", "Product_Family","Dose", "Purification"), method = "d1")
+  })
+  
+  
+  exp_list_reporter = reactive({
+    req(loaded_database_reporter())
+    loaded_database_reporter()$exp_list
+  })
+  
+  
+  #check data correctly loaded
+  output$check_data_reporter = reactive(
+    return(is.null(data_reporter()))
+  )
+  outputOptions(output, "check_data_reporter", suspendWhenHidden = FALSE)
+  
+  
+  output$dtdata_reporter = renderDT({
+    req(data_reporter())
+    if(input$summ_viewtable_reporter == TRUE){
+      data_reporter() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }else{
+      data_notsumm_reporter() %>% dplyr::mutate(dplyr::across(where(is.double), round, digits = 3))
+    }
+  },options = list(scrollX = TRUE))
+  
+  
+  
+  
+  #### informative plots Reporter ####
+  
+  output$countbarplot_reporter = plotly::renderPlotly({
+    req(data_reporter(), exp_list_reporter())
+    
+    count = data_reporter() %>% dplyr::select(where(is.character)) %>% dplyr::mutate(across(where(is.character), ~length(unique(.x))))
+    count = t(count[1,])
+    colnames(count) = "Count"
+    count = count %>% as.data.frame() %>% tibble::rownames_to_column("Measure")
+    count$Var = count$Measure
+    
+    inst = as.data.frame(table(exp_list_reporter()$Instrument))
+    inst$Measure = "Instrument"
+    scanint = rbind(inst)
+    colnames(scanint) = c("Var", "Count","Measure")
+    
+    count = rbind(count,scanint)
+    count$Measure = factor(count$Measure, levels = unique(count$Measure))
+    count$Var = factor(count$Var, levels = unique(count$Var))
+    temp = ggplot(count, aes(x = Measure, y = Count, group = Var)) + geom_col(aes(fill = Var)) + 
+      geom_text(aes(label=Count),position = position_stack(vjust = 0.5)) + ggtitle("Data overview") + labs(x = "Measure", fill = "Measure", y = "Total numbers") + 
+      theme(axis.text.x = element_text(angle = 315, hjust = 0))
+    
+    plotly::ggplotly(temp)
+    
+  })
+  
+  
+  output$prodfam_barplot_reporter = plotly::renderPlotly({
+    req(data_reporter())
+    
+    prod_table =  as.data.frame(table(data_reporter()$Product_Family))
+    colnames(prod_table)[1] = "Product_Family"
+    
+    prod_table = prod_table[order(-prod_table$Freq),]
+    prod_table$Product_Family = factor(prod_table$Product_Family, levels = rev(prod_table$Product_Family))
+    
+    
+    if(input$first50_prodfam_reporter == TRUE && length(unique(data_reporter()$Product_Family)) > 50){
+      prod_table = prod_table[1:50,]
+    }
+    
+    temp = ggplot(prod_table) + geom_col(aes(y = Product_Family, x = Freq, fill = Product_Family))+ 
+      xlab("Number of samples")+ ylab("Product Family") + ggtitle("Sample for each Product Family") + 
+      theme(axis.text.y = element_text(size = 7.4))
+    
+    plotly::ggplotly(temp, tooltip = c("x", "fill"))
+  })
+  
+  output$prodfam_barplotUI_reporter = renderUI({
+    
+    if(input$first50_prodfam_reporter == TRUE || length(unique(data_reporter()$Product_Family)) < 50){
+      size_plot = 84 + 640
+    }else{
+      size_plot = 84 + (640*length(unique(data_reporter()$Product_Family)))/(50 + length(unique(data_reporter()$Product_Family))/10) #640 found with html inspect when 50 prod are shown.
+    }
+    
+    plotly::plotlyOutput("prodfam_barplot_reporter", height = paste0(size_plot,"px"))
+  })
+  
+  
+  
+  
+  #### Barplot reporter ####
+
+  observeEvent(data_notsumm_reporter(),{
+    if(input$sel_reporter == "SEAP"){
+      updateSelectInput(session, "typeeval_bar_reporter", choices = "Concentration")
+      updateSelectInput(session, "typeeval_bar2_reporter", choices = "Concentration")
+    }else{
+      updateSelectInput(session, "typeeval_bar_reporter", choices = colnames(dplyr::select(data_notsumm_reporter(), where(is.double),-Dose)))
+      updateSelectInput(session, "typeeval_bar2_reporter", choices = colnames(dplyr::select(data_notsumm_reporter(), where(is.double),-Dose)))
+      
+    }
+  })
+  
+  
+  output$show_barplot2_reporter = reactive({
+    ifelse(input$add_barplot_reporter %%2 == 1, TRUE, FALSE)
+  })
+  outputOptions(output, "show_barplot2_reporter", suspendWhenHidden = FALSE)
+  
+  
+  observeEvent(input$add_barplot_reporter,{
+    if(input$add_barplot_reporter %%2 == 1){
+      updateActionButton(session, "add_barplot_reporter",label = HTML("&nbsp;Remove second barplot"),icon("minus")) 
+    }else{
+      updateActionButton(session, "add_barplot_reporter", label = HTML("&nbsp;Add another barplot"), icon("plus"))
+    }
+  })
+  
+  
+  observeEvent(data_reporter(),{
+    updateSelectInput(session, "model_filt_bar_reporter", choices = unique(data_reporter()$Model_type))
+    updateSelectInput(session, "model_filt_bar2_reporter", choices = unique(data_reporter()$Model_type))
+    
+  })
+  
+  observeEvent(input$model_filt_bar_reporter,{
+    family = data_reporter() %>% dplyr::filter(Model_type == input$model_filt_bar_reporter) %>%
+      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
+    updateSelectInput(session, "family_filt_bar_reporter", choices = unique(family))
+  })
+  
+  #purification
+  observeEvent(c(input$model_filt_bar_reporter,input$family_filt_bar_reporter),{
+    purif = dplyr::filter(data_reporter(), Model_type == input$model_filt_bar_reporter & Product_Family == input$family_filt_bar_reporter)
+    updateSelectInput(session, "purif_filt_bar_reporter", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
+  
+  
+  output$check_multID_bar1_reporter = reactive({
+    req(data_notsumm_reporter())
+    data_plot_not1 =  dplyr::filter(data_notsumm_reporter(), 
+                                    Product_Family == input$family_filt_bar_reporter & Model_type == input$model_filt_bar_reporter & Purification == input$purif_filt_bar_reporter)
+    ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
+  })
+  outputOptions(output, "check_multID_bar1_reporter", suspendWhenHidden = FALSE)
+  
+  
+  output$barplot_reporter = plotly::renderPlotly({
+    req(data_notsumm_reporter())
+    
+    data_plot_not1 =  dplyr::filter(data_notsumm_reporter(), 
+                                    Product_Family == input$family_filt_bar_reporter & Model_type == input$model_filt_bar_reporter & Purification == input$purif_filt_bar_reporter)
+    cnts = data_notsumm_reporter() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
+    data_plot_not = rbind(data_plot_not1, cnts)
+    
+    if(all(c("LPS") %in% cnts$Product)){
+      level_order = c("CTRL", "LPS", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
+    
+    
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar_reporter), fill = factor(Dose)))+
+      coord_cartesian(ylim=c(0, 100)) + 
+      geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
+      stat_summary(fun.data = ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      xlab("Product") + ggtitle(input$family_filt_bar_reporter) + labs(fill = "Dose") +
+      theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
+    
+    
+    if(length(unique(data_plot_not$Experiment_id)) >1){
+      showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_bar_reporter,". 
+                                                  You can summarise them (Faceting expID to FALSE) or you can
+                                                  facet (Faceting expID to TRUE)")), type = "default")
+      if(input$facet_bar_reporter == TRUE){
+        plot = plot + facet_grid(~Experiment_id, scales = "free", switch = "x")
+      }
+    }
+    
+    if(input$addpoints_barplot_reporter == TRUE){
+      plot = plot + geom_point(position = position_dodge(width = 1))
+    }
+    
+    plotly::ggplotly(plot)
+    
+  })
+  
+  
+  
+  ### second barplot
+  observeEvent(input$model_filt_bar2_reporter,{
+    family = data_reporter() %>% dplyr::filter(Model_type == input$model_filt_bar2_reporter) %>%
+      dplyr::filter(!stringr::str_detect(Product_Family, "CTRL")) %>% dplyr::select(Product_Family)
+    updateSelectInput(session, "family_filt_bar2_reporter", choices = unique(family))
+  })
+  
+  #purification
+  observeEvent(c(input$model_filt_bar2_reporter,input$family_filt_bar2_reporter),{
+    purif = dplyr::filter(data_reporter(), Model_type == input$model_filt_bar2_reporter & Product_Family == input$family_filt_bar2_reporter)
+    updateSelectInput(session, "purif_filt_bar2_reporter", choices = unique(purif$Purification), selected = unique(purif$Purification)[1])
+  })
+  
+  output$check_multID_bar2_reporter = reactive({
+    req(data_notsumm_reporter())
+    data_plot_not1 =  dplyr::filter(data_notsumm_reporter(), 
+                                    Product_Family == input$family_filt_bar2_reporter & Model_type == input$model_filt_bar2_reporter & Purification == input$purif_filt_bar2_reporter)
+    ifelse(length(unique(data_plot_not1$Experiment_id)) >1, TRUE, FALSE)
+  })
+  outputOptions(output, "check_multID_bar2_reporter", suspendWhenHidden = FALSE)
+  
+  
+  output$barplot2_reporter = plotly::renderPlotly({
+    req(data_notsumm_reporter())
+    
+    data_plot_not1 =  dplyr::filter(data_notsumm_reporter(), 
+                                    Product_Family == input$family_filt_bar2_reporter & Model_type == input$model_filt_bar2_reporter & Purification == input$purif_filt_bar2_reporter)
+    cnts = data_notsumm_reporter() %>% dplyr::filter(stringr::str_detect(Product_Family, "CTRL") & Experiment_id %in% unique(data_plot_not1$Experiment_id))
+    data_plot_not = rbind(data_plot_not1, cnts)
+    
+    if(all(c("LPS") %in% cnts$Product_Family)){
+      level_order = c("CTRL", "LPS", sort(unique(data_plot_not1$Product)))
+    }else{
+      level_order = c("CTRL", sort(unique(cnts[cnts$Product_Family == "CTRL+",]$Product)), sort(unique(data_plot_not1$Product)))
+    }
+    
+    plot = ggplot(data_plot_not, aes(x = factor(Product, level = level_order), y = !!sym(input$typeeval_bar2_reporter), fill = factor(Dose)))+
+      coord_cartesian(ylim=c(0, 100)) + 
+      geom_bar(position = position_dodge(), stat = "summary",fun = "mean") +
+      stat_summary(fun.data = ggplot2::mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black", width=0.2,position = position_dodge(width = 1))+
+      xlab("Product") + ggtitle(input$family_filt_bar2_reporter) + labs(fill = "Dose") +
+      theme(axis.text.x = element_text(angle = 315, hjust = 0, size = 10, margin=margin(t=30)),legend.title = element_blank())
+    
+    
+    if(length(unique(data_plot_not$Experiment_id)) >1){
+      showNotification(tagList(icon("info"), HTML("&nbsp;There are multiple Experiment ID for", input$family_filt_bar2_reporter,". 
+                                                  You can summarise them (Faceting expID to FALSE) or you can
+                                                  facet (Faceting expID to TRUE)")), type = "default")
+      if(input$facet_bar2_reporter == TRUE){
+        plot = plot + facet_grid(~Experiment_id, scales = "free", switch = "x")
+      }
+    }
+    
+    if(input$addpoints_barplot2_reporter == TRUE){
+      plot = plot + geom_point(position = position_dodge(width = 1))
+    }
+    
+    plotly::ggplotly(plot)
+    
+  })
+  
+  ##### spiderplot reporter ####
+  
+  mod_spiderplot_server("spiderplot_reporter", data = data_reporter, type_data = reactive(input$sel_reporter))
+  
+  ##### bubbleplot reporter #####
+  mod_bubble_plot_server("bubbleplot_reporter", data = data_reporter, type_data = reactive(input$sel_reporter))
+  
+  
+  ##### heatmap ####
+  
+  
+  data_heatmap_reporter = mod_heatmap_cyto_repo_server("heatmap_reporter", data = data_reporter, data_type = reactive(input$sel_reporter))
+  
+  observeEvent(data_heatmap_reporter(),{
+    InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, data_heatmap_reporter(), output_id  = "heatmap_output_reporter",
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600)
+  })
+  
+  
+  
+  #### Integration #####
+  
+  #### check datatable
+  
+  all_databases = reactive({
+    req(data())
+    req(loaded_database_trem2())
+    req(loaded_database_seap())
+    req(data_D1())
+    dt = list(cyto = data(), d1 = data_D1(), trem2 = loaded_database_trem2()$mydataset, seap = loaded_database_seap()$mydataset)
+    lapply(dt,  function(x) x %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))))
+  })
+  
+  yes_icon = '<i aria-label="ok icon" class="glyphicon glyphicon-ok" role="presentation" style="
+    color: lawngreen;"></i>'
+  no_icon = '<i aria-label="remove icon" class="glyphicon glyphicon-remove" role="presentation" style="
+    color: red;"></i>'
+  
+  
+  data_checktable = reactive({
+    req(all_databases())
+    
+    lapply(all_databases(), function(x) x %>% dplyr::pull(Product_Family) %>% unique()) %>% 
+      make_check_table() %>% 
+      dplyr::mutate(across(2:5, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+  })
+  
+  output$checktable <- DT::renderDT({
+   req(data_checktable())
+   data_checktable() 
+  }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
+  options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:4)))
+  )
+  
+
+  
+
+  
+  ####model
+  checktable_models = reactive({
+    req(all_databases())
+    req(input$checktable_rows_selected)
+    nroww = input$checktable_rows_selected
+
+    dt = lapply(all_databases(), function(x) x %>% dplyr::filter(Product_Family == data_checktable()[nroww,]$Product_Family) %>% 
+                  dplyr::pull(Model_type) %>% unique())
+    
+    unique_mod =  lapply(all_databases(), function(x) x %>% dplyr::pull(Model_type) %>% unique())
+    
+    full_mod = list()
+    for(k in names(all_databases())){
+      full_mod[[k]] = data.frame(Model_type = unique_mod[[k]]) %>%
+        dplyr::mutate(Check = case_when(Model_type %in% dt[[k]]~ yes_icon, TRUE ~ no_icon))
+    }
+    return(full_mod)
+  })
+  
+  
+  output$checktable_models_cyto = renderTable({
+    req(checktable_models())
+    checktable_models()$cyto
+  },width = "100%", bordered = T,align = "lc",sanitize.text.function = function(x) x)
+  
+  output$checktable_models_d1 = renderTable({
+    req(checktable_models())
+    checktable_models()$d1
+  },width = "100%", bordered = T,align = "lc",sanitize.text.function = function(x) x)
+  
+  output$checktable_models_trem2 = renderTable({
+    req(checktable_models())
+    checktable_models()$trem2
+  },width = "100%",bordered = T,align = "lc",sanitize.text.function = function(x) x)
+  
+
+  output$checktable_models_seap = renderTable({
+    req(checktable_models())
+    checktable_models()$seap
+  },width = "100%",bordered = T,align = "lc", sanitize.text.function = function(x) x)
+  
   
 }

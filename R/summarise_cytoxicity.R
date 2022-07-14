@@ -4,7 +4,7 @@
 #'
 #' @param X data to summarise.
 #' @param group Column used for the grouping. The columns in group will not be removed.
-#' @param method Charcter. Can be "cyto", "d1" or "trem".
+#' @param method Charcter. Can be "cyto", "d1","trem" or "seap".
 #' 
 #'
 #' @importFrom dplyr group_by summarise ungroup across
@@ -55,8 +55,18 @@ summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD
         Vitality.average = mean(Vitality, na.rm=TRUE),
         Cytotoxicity.CV = fun_CV(Cytotoxicity),
         Vitality.CV = fun_CV(Vitality),
-        GFP.average = mean(GFP, na.rm = TRUE)
+        GFP.average = mean(GFP, na.rm = TRUE),
+        GFP.CV = fun_CV(GFP)
       ) %>% dplyr::ungroup()
+  }else if(method == "seap"){
+    X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
+      dplyr::summarise(
+        Concentration.average = mean(Concentration, na.rm=TRUE),
+        Concentration.sd = sd(Concentration,na.rm = TRUE),
+        Concentration.nreps = n(),
+        Concentration.CV = fun_CV(Concentration)
+      ) %>% dplyr::ungroup()
+    
   }else{
     return(NULL)
     message("wrong method in summarise_cytotoxicity")

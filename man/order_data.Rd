@@ -4,7 +4,7 @@
 \alias{order_data}
 \title{order_data}
 \usage{
-order_data(data, as_factor = FALSE)
+order_data(data, as_factor = FALSE, var_to_order)
 }
 \arguments{
 \item{data}{your data}
