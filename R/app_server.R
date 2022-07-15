@@ -1787,7 +1787,6 @@ app_server <- function( input, output, session ) {
   query_D1 = reactive({
     req(dataquery_D1())
     validate(need(input$selcol_query_d1, "Select something in the MFI selection."))
-    
 
     mydataset_D1 = dataquery_D1()
     cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
@@ -1811,19 +1810,22 @@ app_server <- function( input, output, session ) {
           
         }else{
           cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-          data %>% dplyr::filter(get(i) >= mean(cnt[,i])* input$thresh_query_d1)
+          data %>% dplyr::filter(get(i) >= mean(cnt[,i])*input$thresh_query_d1)
         }
       })
       
       temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
     }
-    #saveRDS(temp, "temp.rds")
     if(length(input$selcol_query_d1) > 1){
-      raw = Reduce(intersect, temp)
+      if(input$andor_query_d1 == "AND"){
+        raw = Reduce(intersect, temp)
+      }else{
+        raw = Reduce(rbind, temp) %>% dplyr::distinct()
+      }
+      
     }else{
       raw = temp[[input$selcol_query_d1]]
     }
-    
     if(input$add2query_d1 %%2 == 1){
       raw = operation_filtering(data = raw,
                                 column = input$selcol_query_d12,
@@ -1836,16 +1838,7 @@ app_server <- function( input, output, session ) {
     
     summ = raw %>% group_by(Model_type, Product_Family) %>% dplyr::summarise(n_products = n())
     
-    # if(input$andor_query_d1 == "AND"){
-    #   joined = summ %>% #temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
-    #     dplyr::filter(n == length(input$filtmod_query_cyto)) %>% dplyr::pull(Product_Family)
-    #   
-    #   temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
-    # }
-    
-    
     list(raw = raw, summ = summ)
-    
   })
   
   
