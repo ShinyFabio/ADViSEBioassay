@@ -972,6 +972,13 @@ app_ui <- function(request) {
             )
           ), #end of first tabitem (data)
           
+          
+          tabItem(
+            tabName = "repoquerytab"
+            
+            ),
+          
+          
           tabItem(
             tabName = "repoplottab",
             tabsetPanel(

@@ -9,7 +9,7 @@
 #'
 
 
-order_data = function(data, as_factor = FALSE, var_to_order){
+order_data = function(data, as_factor = FALSE, var_to_order = "Model_type"){
   
   if(is.null(var_to_order)) return(data)
   if(var_to_order == "") return(data)
