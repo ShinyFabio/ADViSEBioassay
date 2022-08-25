@@ -1484,7 +1484,11 @@ app_server <- function( input, output, session ) {
           
         }else{
           cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-          data %>% dplyr::filter(get(i) >= mean(cnt[,i])*input$thresh_query_d1)
+          if(input$selop_query_d1 == "greater than"){
+            data %>% dplyr::filter(get(i) > mean(cnt[,i])*input$thresh_query_d1)
+          }else{
+            data %>% dplyr::filter(get(i) >= mean(cnt)*input$thresh_query_d1)
+          }
         }
       })
       
@@ -2696,20 +2700,34 @@ app_server <- function( input, output, session ) {
     req(all_databases())
     
     lapply(all_databases(), function(x) x %>% dplyr::pull(Product_Family) %>% unique()) %>% 
-      make_check_table() %>% 
+      make_check_table() %>%
       dplyr::mutate(across(2:5, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
   })
   
   output$checktable <- DT::renderDT({
-   req(data_checktable())
-   data_checktable() 
+    req(data_checktable())
+    req(info)
+    dplyr::left_join(data_checktable(), dplyr::select(info, "Chemical_code", "Info"), by = c("Product_Family" = "Chemical_code"))
+    
   }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
-  options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:4)))
+  options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:5)))
   )
   
+###info
+
+  observeEvent(input[["infoprod_select_button"]], {
+    print(input$infoprod_select_button)
+    toggleModal(session, "modal_infoprod", toggle = "open")
+  })
+
+  output$dt_infoprod = renderDT({
+    req(input$infoprod_select_button)
+    print(input[["infoprod_select_button"]]) #è equivalente all'$. Viene preso dall'onclick parameter dell'actionbutton (vedi data-raw)
+    prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
+    info %>% dplyr::select(-Info) %>% dplyr::filter(Chemical_code == prod_fam)
+  },selection = "single", rownames = FALSE, options = list(scrollX = TRUE))
 
   
-
   
   ####model
   checktable_models = reactive({

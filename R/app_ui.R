@@ -1077,8 +1077,19 @@ app_ui <- function(request) {
                   )
                 )
               )
-            )
+            ),
             
+            #info modal
+            tags$head(tags$style("#modal_infoprod .modal-dialog{ min-width:170rem}")),
+            tags$head(tags$style("#modal_infoprod .modal-body{ min-height:80rem}")),
+            shinyBS::bsModal("modal_infoprod", title = "Information ",
+                             trigger = "random_trigger", size = "large",
+                             fluidPage(
+                               column(8, box(width = NULL, status = "primary", shinycssloaders::withSpinner(DTOutput("dt_infoprod")))),
+                               column(4, box(width = NULL, status = "primary"))
+                               )
+            )
+
           )
           
           
