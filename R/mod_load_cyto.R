@@ -60,7 +60,7 @@ mod_load_cyto_ui <- function(id){
     
     conditionalPanel(
       condition = "output.check_allOK == false", ns = ns,
-      div(actionButton(ns("gocyto"), "Evaluate cytotoxicity", icon("cogs")), style = "text-align: center;")
+      div(actionButton(ns("gocyto"), "Evaluate cytotoxicity", icon("gears")), style = "text-align: center;")
     )
  
   )
@@ -259,7 +259,7 @@ mod_load_cyto_server <- function(id, data_type){
       
       if (!all(file_list %in% list.files(unique(exp_list()$Path)))){
         file_wrong = file_list[!file_list %in% list.files(unique(exp_list()$Path))]
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;At least one file is missing or reported with the wrong name! Check",file_wrong)), type = "error")
         message("At least one file is missing or reported with the wrong name! Check",file_wrong)
         return(NULL)
       } else {
@@ -286,7 +286,7 @@ mod_load_cyto_server <- function(id, data_type){
           })
           where = Filter(Negate(is.null), temp) %>% unlist()
           if(!is.null(where)){
-            showNotification(tagList(icon("times-circle"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
+            showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;There is a discrepancy between wavelengths in Experiment_list and ",where)), type = "error")
             return(NULL)
           }
           
@@ -396,7 +396,7 @@ mod_load_cyto_server <- function(id, data_type){
         for(i in col_to_check){
           if(TRUE %in% is.na(myprocesseddata[,i])){
             message(paste0("There are some NA values inside",i,". Check the target file"))
-            showNotification(tagList(icon("times-circle"), HTML("&nbsp;There are some NA values inside",i,". Check the target file")), type = "error")
+            showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;There are some NA values inside",i,". Check the target file")), type = "error")
             err = err+1
           }
         }

@@ -124,7 +124,7 @@ app_server <- function( input, output, session ) {
       showNotification(tagList(icon("info"), HTML("&nbsp;Cytotoxicity data loading...")), type = "default")
       return(cyto_data1())
     }else{
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Cytotoxicity data not loaded")), type = "error")
       return(NULL)
     }
   })
@@ -259,7 +259,7 @@ app_server <- function( input, output, session ) {
     
     if(input$confirmsave_cyto == TRUE && checkdatabase == FALSE){
       if(dim(loaded_database_cyto1()$exp_list)[1] == dim(loaded_database_cyto()$exp_list)[1]){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;The internal database is already updated.")), type = "error")
       }else{
         
         filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/cyto/")
@@ -331,7 +331,7 @@ app_server <- function( input, output, session ) {
               column(10,offset = 1, selectInput("ver_databases", "Select a database", choices = "")),
               conditionalPanel(
                 condition = "input.ver_databases != ''",
-                actionButton("load_version", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+                actionButton("load_version", HTML("&nbsp;Load version"),icon("rotate-left"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               )
               )
           
@@ -340,7 +340,7 @@ app_server <- function( input, output, session ) {
           6,style = "text-align:center;",
           box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
               br(),
-              actionButton("rest_to_original", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              actionButton("rest_to_original", HTML("&nbsp;Reset database"),icon("trash-can"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               br(),br(), br()
               ))
       )
@@ -378,7 +378,7 @@ app_server <- function( input, output, session ) {
         saveRDS(file, file = filepath)
         showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
       }
     }
   })
@@ -410,7 +410,7 @@ app_server <- function( input, output, session ) {
         file.remove(file_to_rem)
         showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Updated database already removed.")), type = "error")
       }
     }
     
@@ -1029,7 +1029,7 @@ app_server <- function( input, output, session ) {
       showNotification(tagList(icon("info"), HTML("&nbsp;D1 data loading...")), type = "default")
       return(D1_data1())
     }else{
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;D1 data not loaded")), type = "error")
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;D1 data not loaded")), type = "error")
       return(NULL)
     }
   })
@@ -1158,7 +1158,7 @@ app_server <- function( input, output, session ) {
     
     if(input$confirmsave_D1 == TRUE && checkdatabase == FALSE){
       if(dim(loaded_database_D1_pre()$exp_list)[1] == dim(loaded_database_D1()$exp_list)[1]){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;The internal database is already updated.")), type = "error")
       }else{
         filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/D1/")
         if(dir.exists(filepath) == FALSE){
@@ -1229,7 +1229,7 @@ app_server <- function( input, output, session ) {
               column(10,offset = 1, selectInput("ver_databases_D1", "Select a database", choices = "")),
               conditionalPanel(
                 condition = "input.ver_databases_D1 != ''",
-                actionButton("load_version_D1", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+                actionButton("load_version_D1", HTML("&nbsp;Load version"),icon("rotate-left"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               )
           )
           
@@ -1238,7 +1238,7 @@ app_server <- function( input, output, session ) {
           6,style = "text-align:center;",
           box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
               br(),
-              actionButton("rest_to_original_D1", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              actionButton("rest_to_original_D1", HTML("&nbsp;Reset database"),icon("trash-can"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               br(),br(), br()
           ))
       )
@@ -1277,7 +1277,7 @@ app_server <- function( input, output, session ) {
         saveRDS(file, file = filepath)
         showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
       }
     }
   })
@@ -1308,7 +1308,7 @@ app_server <- function( input, output, session ) {
         file.remove(file_to_rem)
         showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Updated database already removed.")), type = "error")
       }
     }
     
@@ -1865,7 +1865,7 @@ app_server <- function( input, output, session ) {
   observeEvent(input$logheat_D1,{
     if(input$logheat_D1 == TRUE){
       if(all(markers_heat_D1() > 0) == FALSE){
-        showNotification(type = "warning", duration = 7, tagList(icon("exclamation-circle"), 
+        showNotification(type = "warning", duration = 7, tagList(icon("circle-exclamation"), 
                                  HTML("&nbsp;Warning! There are some negative values. The log scale will return some NAs.")))
       }
     }
@@ -2012,8 +2012,10 @@ app_server <- function( input, output, session ) {
   ###### Reporter ########
   
   repo_data1 = reactiveValues(
-    trem2 = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_trem2.rda"))) database_trem2 else{NULL},
-         seap = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_seap.rda"))) database_seap else{NULL}
+    trem2 = database_trem2,
+    seap = database_seap
+    #trem2 = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_trem2.rda"))) database_trem2 else{NULL},
+    #seap = if(file.exists(paste0(base::system.file(package = "ADViSEBioassay"),"/data/database_seap.rda"))) database_seap else{NULL}
   )
 
   observe({
@@ -2069,7 +2071,7 @@ app_server <- function( input, output, session ) {
       showNotification(tagList(icon("info"), HTML("&nbsp;TREM2 data loading...")), type = "default")
       return(repo_data1$trem2)
     }else{
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
       return(NULL)
     }
   })
@@ -2088,7 +2090,7 @@ app_server <- function( input, output, session ) {
       showNotification(tagList(icon("info"), HTML("&nbsp;TREM2 data loading...")), type = "default")
       return(repo_data1$seap)
     }else{
-      showNotification(tagList(icon("times-circle"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;TREM2 data not loaded")), type = "error")
       return(NULL)
     }
   })
@@ -2232,7 +2234,7 @@ app_server <- function( input, output, session ) {
     
     if(input$confirmsave_reporter == TRUE && checkdatabase == FALSE){
       if(dim(loaded_database_reporter_pre()$exp_list)[1] == dim(loaded_database_reporter()$exp_list)[1]){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;The internal database is already updated.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;The internal database is already updated.")), type = "error")
       }else{
         filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/data/reporter/",input$sel_reporter,"/")
         if(dir.exists(filepath) == FALSE){
@@ -2302,7 +2304,7 @@ app_server <- function( input, output, session ) {
               column(10,offset = 1, selectInput("ver_databases_reporter", "Select a database", choices = "")),
               conditionalPanel(
                 condition = "input.ver_databases_reporter != ''",
-                actionButton("load_version_reporter", HTML("&nbsp;Load version"),icon("undo"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+                actionButton("load_version_reporter", HTML("&nbsp;Load version"),icon("rotate-left"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               )
           )
           
@@ -2311,7 +2313,7 @@ app_server <- function( input, output, session ) {
           6,style = "text-align:center;",
           box(width = NULL, status = "primary", title = "Reset database to the original internal database", solidHeader = TRUE,
               br(),
-              actionButton("rest_to_original_reporter", HTML("&nbsp;Reset database"),icon("trash-alt"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
+              actionButton("rest_to_original_reporter", HTML("&nbsp;Reset database"),icon("trash-can"), style = "background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:120%; font-weight: bold;"),
               br(),br(), br()
           ))
       )
@@ -2350,7 +2352,7 @@ app_server <- function( input, output, session ) {
         saveRDS(file, file = filepath)
         showNotification(tagList(icon("check"), HTML("&nbsp;Previous version restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;This file version doesn't exist.")), type = "error")
       }
     }
   })
@@ -2380,18 +2382,14 @@ app_server <- function( input, output, session ) {
         file.remove(file_to_rem)
         showNotification(tagList(icon("check"), HTML("&nbsp;Original database restored!")), type = "message")
       }else{
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Updated database already removed.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Updated database already removed.")), type = "error")
       }
     }
     
   })
   
   
-  
-  
-  
-  
-  
+   
   
   ####
   #load data
@@ -2433,6 +2431,16 @@ app_server <- function( input, output, session ) {
   
   
   #### informative plots Reporter ####
+  observeEvent(input$sel_reporter,{
+    if(input$sel_reporter == "SEAP"){
+      updateAwesomeRadio(session, "seltype_infograph_reporter", choices = c("Data overview", "Product family", 
+                                                                          "Model types per fraction", "Fractions frequence"))
+    }else{
+      updateAwesomeRadio(session, "seltype_infograph_reporter", choices = c("Data overview", "Product family"))
+    }
+  })
+
+  
   
   output$countbarplot_reporter = plotly::renderPlotly({
     req(data_reporter(), exp_list_reporter())
@@ -2493,7 +2501,68 @@ app_server <- function( input, output, session ) {
   })
   
   
+
   
+  #1 quante e quali linee è presente il product
+  # observeEvent(data_reporter(),{
+  #   if(input$sel_reporter == "SEAP"){
+  #     products = dplyr::filter(data_reporter(), !if_any("Product_Family", ~grepl("CTRL",.)))$Product_Family
+  #     updateSelectInput(session, "query1_repo_prodfam", choices = unique(products))
+  #   }
+  # })
+  # 
+  # observeEvent(input$query1_repo_prodfam,{
+  #   updateSelectInput(session, "query1_repo", 
+  #                     choices = unique(dplyr::filter(data_reporter(), Product_Family %in% input$query1_repo_prodfam)$Product))
+  # })
+  
+  observeEvent(data_reporter(),{
+    if(input$sel_reporter == "SEAP"){
+      products = dplyr::filter(data_reporter(), !if_any("Product_Family", ~grepl("CTRL",.)))$Product
+      updateSelectInput(session, "query1_repo",
+                        choices = unique(products))
+    }
+
+  })
+  
+  #Model types found in a selected fraction
+  output$modtype_perfrac_seap = renderDT({
+    req(data_reporter())
+    req(input$query1_repo)
+    data_reporter() %>% dplyr::filter(Product %in% input$query1_repo) %>% dplyr::select(Product, Model_type) %>% 
+      dplyr::distinct() %>% dplyr::mutate(Presence = "yes") %>% 
+      tidyr::pivot_wider(names_from = Model_type, values_from = Presence) %>%
+      dplyr::mutate(across(2:4, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+
+  }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
+  options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
+  
+
+  
+  
+  
+  
+  #2. frequenza delle frazioni (Product ext,A,B,C,D,E) attive nei saggi, quale Product trovo più frequentemente attivo;
+  #voglio vedere quanti A, B, ext, C etc.
+  output$fractfreq_seap = renderPlotly({
+    req(data_reporter())
+    if(input$seltype_infograph_reporter == "Fractions frequence"){
+      due = data_reporter() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.))) %>% 
+        dplyr::mutate(Extract = stringr::str_replace(stringr::str_replace(Product, Product_Family, ""), "_","")) %>% 
+        dplyr::mutate(Extract = stringr::str_replace(Extract,pattern="^$",replacement="EXT")) %>% dplyr::pull(Extract) %>% table() %>%
+        as.data.frame() %>% dplyr::rename("Fraction" = ".", "Frequence" = "Freq")
+      temp = ggplot(due, aes(x=Fraction , y = Frequence)) + geom_col(aes(fill = Fraction)) + 
+        geom_text(aes(label=Frequence),position = position_stack(vjust = 0.5))
+      plotly::ggplotly(temp)
+    }
+  })
+
+
+
+  
+  
+  
+
   
   #### Barplot reporter ####
 
@@ -2677,7 +2746,149 @@ app_server <- function( input, output, session ) {
   
   
   
-  #### Integration #####
+  #### query reporter ####
+  
+  #update type of query based on seap or trem2
+  observeEvent(input$sel_reporter,{
+    if(input$sel_reporter == "SEAP"){
+      updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL" = "1"))
+    }else{
+      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+" = "4",
+                                                               "Enriched fractions" = "6"))
+    }
+  })
+  
+  observeEvent(input$query_reporter,{
+
+    if(input$query_reporter == "1"){
+      updateSelectInput(session, "query3_repo_modtype", choices = unique(data_reporter()$Model_type))
+      updateSelectInput(session, "query_reporter2", choices = c("Enriched fractions" = "3"))
+    }
+  })
+  
+  
+  #### Add another query for SEAP
+
+  #output to show the second row
+  output$checkadd2query_seap = reactive({
+    if(input$add2query_seap %%2 == 0){
+      "onequery"
+    }else{"twoquery"}
+    })
+  outputOptions(output, "checkadd2query_seap", suspendWhenHidden = FALSE)
+  
+  #to update the button
+  observeEvent(input$add2query_seap,{
+    if(input$add2query_seap %%2 == 1){
+      updateButton(session, "add2query_seap",label = HTML("&nbsp;Remove"), style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add2query_seap", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+    }
+  })
+  
+
+  #### Add another query for TREM2
+  
+  #output to show the second row
+  output$checkadd2query_trem = reactive({
+    if(input$add2query_trem %%2 == 0){
+      "onequery"
+    }else{"twoquery"}
+  })
+  outputOptions(output, "checkadd2query_trem", suspendWhenHidden = FALSE)
+  
+  #to update the button
+  observeEvent(input$add2query_trem,{
+    if(input$add2query_trem %%2 == 1){
+      updateButton(session, "add2query_trem",label = HTML("&nbsp;Remove"), style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add2query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+    }
+  })
+  
+  
+  
+  
+  query_repo_data2 = eventReactive(input$go_queryrepo,{
+    req(data_reporter())
+    print(input$query_reporter)
+    
+    ###SEAP
+    
+    if(input$query_reporter == "1"){
+      validate(need(input$query3_repo_modtype, "Please select at least one Model_type"))
+      return(productive_fractions(data_reporter = data_reporter(),
+                           model_type = input$query3_repo_modtype,
+                           times_ctrl = input$query3_repo_thresh))
+    }
+    
+    
+    ###TREM2
+    if(input$sel_reporter == "TREM2"){
+      cnt_trem2 <- data_reporter() %>% dplyr::filter(Product_Family == "CTRL+")
+      my_trem2 <- data_reporter() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+      
+      temp_trem2 = lapply(unique(my_trem2$Product_Family), function(m){
+        data = dplyr::filter(my_trem2, Product_Family == m)
+        if(length(unique(data$Purification)) >1){
+          #if there are multiple purification, we have to check for each purification
+          lapply(unique(data$Purification), function(k){
+            data2 = data %>% dplyr::filter(Purification == k)
+            cnt2 = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id)) %>% as.data.frame()
+            data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(input$query4_repo_thresh/100))
+          }) %>% {Reduce(rbind, .)}
+          
+        }else{
+          cnt = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id)) %>% as.data.frame()
+          data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(input$query4_repo_thresh/100))
+        }
+      }) %>% {Reduce(rbind, .)}
+      
+      if(input$query_reporter == "4"){
+        return(temp_trem2)
+      }
+      
+      if(input$query_reporter == "6"){
+        return(enriched_fractions(data_reporter = data_reporter(), repo_type = "TREM2", prod_trem = temp_trem2))
+      }
+      
+    }
+    
+  })
+  
+
+  query_repo_data = eventReactive(input$go_queryrepo,{
+    req(query_repo_data2())
+    
+    nqueryseap = if(input$add2query_seap %%2 == 0) "onequery" else "twoquery"
+    nquerytrem = if(input$add2query_trem %%2 == 0) "onequery" else "twoquery"
+    
+    if(nqueryseap == "onequery" && nquerytrem == "onequery"){
+      return(query_repo_data2())
+    }else{
+      if(input$query_reporter == "1" && input$query_reporter2 == "3"){
+        enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "SEAP")
+      }
+    }
+    
+  })
+  
+  
+  output$query_repo_dt = renderDT({
+    req(query_repo_data())
+    if("hTREM2_WT_REPORTER" %in% query_repo_data()$Model_type && input$sel_reporter == "TREM2"){
+      query_repo_data()
+    }else if(!("hTREM2_WT_REPORTER" %in% query_repo_data()$Model_type) && input$sel_reporter == "SEAP"){
+      query_repo_data()
+    }else{
+      NULL
+    }
+
+  }, options = list(scrollX = TRUE))
+  
+  
+  
+  #### Integration ####
   
   #### check datatable
   

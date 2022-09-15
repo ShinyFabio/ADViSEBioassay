@@ -28,7 +28,7 @@ mod_edit_data_ui <- function(id){
     cicerone::use_cicerone(),
 
     bsplus::use_bs_tooltip(),    #mi serve per il bs_embed_tooltip()
-    actionButton(ns("editinternal"), icon("edit")),
+    actionButton(ns("editinternal"), icon("pen-to-square")),
     tags$head(tags$style(paste0("#", ns("upinternalmodal")," .modal-dialog{ min-width:1300px}"))),
     tags$head(tags$style(paste0("#", ns("upinternalmodal"), " .modal-body{ min-height:1000px}"))),
     shinyBS::bsModal(ns("upinternalmodal"),

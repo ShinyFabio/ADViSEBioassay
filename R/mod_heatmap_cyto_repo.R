@@ -40,7 +40,7 @@ mod_heatmap_cyto_repo_ui <- function(id){
           condition = "input.dose_op_heatmap == 'subtract'", ns = ns,
           fluidRow(
             column(7, selectInput(ns("subdose_heatmap"), "Subtract:", choices = c("30-5"))),
-            column(5, style="padding-top: 5px;",br(), actionButton(ns("revdose_heat"), icon("exchange-alt"))))
+            column(5, style="padding-top: 5px;",br(), actionButton(ns("revdose_heat"), icon("right-left"))))
         )
       )
       
@@ -294,13 +294,13 @@ mod_heatmap_cyto_repo_server <- function(id, data, data_type){
       
       ### model type filtering
       if(is.null(input$mod_filt_heatmap)){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
         validate(need(input$mod_filt_heatmap, "Select something in the model type filtering."))
       }
       
       if(!("All" %in% input$mod_filt_heatmap)){
         if(length(input$mod_filt_heatmap) < 2 && input$rowdend == TRUE){
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
+          showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select at least two model types or disable row clustering.")), type = "error")
           validate(need(length(input$mod_filt_heatmap) > 2, "Select at least two model types or disable row clustering."))
         }
         CBC150 = dplyr::filter(CBC150, Model_type %in% input$mod_filt_heatmap)
@@ -363,13 +363,13 @@ mod_heatmap_cyto_repo_server <- function(id, data, data_type){
       #cbc_filtered
       ##column (product) filtering
       if(is.null(input$column_filt_heatmap)){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
         validate(need(input$column_filt_heatmap, "Select something in the product (columns) filtering."))
       }
       
       if(!("All" %in% input$column_filt_heatmap)){
         if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+          showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
           validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
         }
         if(class(cbc_filtered)[1] == "list"){
@@ -389,7 +389,7 @@ mod_heatmap_cyto_repo_server <- function(id, data, data_type){
       
       if(!("All" %in% input$column_filt_heatmap)){
         if(input$column_filt_heatmap == "CTRL" && input$columndend == TRUE){
-          showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
+          showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select at least two products (columns) or disable column clustering.")), type = "error")
           validate(need(input$column_filt_heatmap == "CTRL", "Select at least two products (columns) or disable column clustering."))
         }
       }

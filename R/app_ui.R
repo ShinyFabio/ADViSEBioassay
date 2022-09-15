@@ -28,7 +28,7 @@ app_ui <- function(request) {
 
       dashboardHeader(title = span(
         tagList(tags$img(src = "www/logo_ADViSEBioassay.png", width = "32px",style="margin-right: 4px;"), "ADViSEBioassay")),
-        tags$li(class = "dropdown", actionBttn("jumptohome", icon = icon("home"), style = "stretch", size = "lg"))),
+        tags$li(class = "dropdown", actionBttn("jumptohome", icon = icon("house"), style = "stretch", size = "lg"))),
       
 
       sidebar = dashboardSidebar(
@@ -40,26 +40,26 @@ app_ui <- function(request) {
 
         sidebarMenu(
           id = "sidebarmenu",
-          menuItem("Home", tabName = "home", icon = icon("home")),
+          menuItem("Home", tabName = "home", icon = icon("house")),
           menuItem("D1", tabName = "d1tab", icon = icon("circle"),
                    menuSubItem("Data summary", tabName = "d1summtab", icon = icon("clipboard-list")),
-                   menuSubItem("Search", tabName = "d1querytab", icon = icon("search")),
+                   menuSubItem("Search", tabName = "d1querytab", icon = icon("magnifying-glass")),
                    menuSubItem("Explore", tabName = "d1plottab", icon = icon("chart-bar"))
                    ),
           menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("circle"),
                    menuSubItem("Data summary", tabName = "cytosummtab", icon = icon("clipboard-list")),
-                   menuSubItem("Search", tabName = "cytoquerytab", icon = icon("search")),
+                   menuSubItem("Search", tabName = "cytoquerytab", icon = icon("magnifying-glass")),
                    menuSubItem("Explore", tabName = "cytoplottab", icon = icon("chart-bar"))
                    ),
           menuItem("Reporter", tabName = "repotab", icon = icon("circle"),
                    selectInput("sel_reporter", tags$span(style="color: white;","Select Data Type"), choices = c("TREM2", "SEAP")),
                    menuSubItem("Data summary", tabName = "reposummtab", icon = icon("clipboard-list")),
-                   menuSubItem("Search", tabName = "repoquerytab", icon = icon("search")),
+                   menuSubItem("Search", tabName = "repoquerytab", icon = icon("magnifying-glass")),
                    menuSubItem("Explore", tabName = "repoplottab", icon = icon("chart-bar"))
                    ),
           menuItem("Integration", tabName = "inttab", icon = icon("vials"),
                    menuSubItem("Overview", tabName = "overinttab", icon = icon("clipboard-list")),
-                   menuSubItem("Search", tabName = "intquerytab", icon = icon("search"))
+                   menuSubItem("Search", tabName = "intquerytab", icon = icon("magnifying-glass"))
                    )
           )
       ),
@@ -87,13 +87,23 @@ app_ui <- function(request) {
             br(),
             fluidRow(
               
-              
-              box(width = 3, status = "primary", title = h3(strong("Database"), style = "color: white; display:inline; margin-top: 0px;margin-bottom: 0px;"), solidHeader = T,
-                  uiOutput("valbox_cyto"),
-                  uiOutput("valbox_D1"),
-                  uiOutput("valbox_repo"),
-                  div(actionButton("loaddatabase", label = HTML("&nbsp;Load database!"), icon("rocket"), class = "btn btn-primary btn-lg", style='padding:10px; font-size:140%; font-weight: bold;'),style = "text-align: center;")
-              )
+              column(
+                10, offset = 1,
+                box(width = NULL, status = "primary", title = h3(strong("Database"), style = "color: white; display:inline; margin-top: 0px;margin-bottom: 0px;"), solidHeader = T,
+                    fluidRow(
+                      column(4, uiOutput("valbox_cyto")),
+                      column(4, uiOutput("valbox_D1")),
+                      column(4, uiOutput("valbox_repo"))
+                    ),
+                    fluidRow(
+                      div(actionButton("loaddatabase", label = HTML("&nbsp;Load database!"), icon("rocket"), 
+                                       class = "btn btn-primary btn-lg", style='padding:10px; font-size:200%; font-weight: bold;'),
+                          style = "text-align: center;")
+                    )
+                )
+                
+                )
+
               
             )
 
@@ -117,7 +127,7 @@ app_ui <- function(request) {
                                          h5(strong("Summarized data")),
                                          materialSwitch("summ_viewtable", value = TRUE, status = "primary")
                         ),
-                        circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                        circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                         tooltip = tooltipOptions(title = "Click to see options"))
                     )),
                     
@@ -126,7 +136,7 @@ app_ui <- function(request) {
                 fluidRow(
                   column(
                     1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
-                    actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("upcyto_modalbutton", HTML("&nbsp;Add new data"), icon("file-arrow-up"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
                   column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
                   column(
@@ -137,7 +147,7 @@ app_ui <- function(request) {
                     condition = "output.check_ifsave_cyto == true",
                     column(
                       2, style = "text-align:center;",
-                      actionButton("save_update", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                      actionButton("save_update", HTML("&nbsp;Save database"), icon("floppy-disk"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
                     )
                   ),
                   conditionalPanel(
@@ -149,7 +159,7 @@ app_ui <- function(request) {
                   ),
                   column(
                     2, style = "text-align:center;",
-                    actionButton("remove_update_cyto", HTML("&nbsp;Restore database"),icon("undo"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("remove_update_cyto", HTML("&nbsp;Restore database"),icon("arrow-rotate-left"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
                   )
                   
                 ),
@@ -164,7 +174,7 @@ app_ui <- function(request) {
                                  hr(),
                                  conditionalPanel(
                                    condition = "output.check_data_updated == false",
-                                   div(actionButton("update_cyto_bttn", "Merge!",icon("edit"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
+                                   div(actionButton("update_cyto_bttn", "Merge!",icon("pen-to-square"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
                                  
                     ),
                     mainPanel(
@@ -177,7 +187,7 @@ app_ui <- function(request) {
                                                       h5(strong("Summarized data")),
                                                       materialSwitch("summ_viewtable_updated", value = TRUE, status = "primary")
                                      ),
-                                     circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                                     circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                                      tooltip = tooltipOptions(title = "Click to see options"))
                             )),
                           
@@ -383,123 +393,7 @@ app_ui <- function(request) {
                     
                   )
                 )
-                       # sidebarLayout(
-                       #   sidebarPanel(
-                       #     width = 3,
-                       #     div(actionButton("makeheatmap", label = "Make Heatmap", class = "btn btn-primary btn-lg", width = "140px", style='padding:5px; font-size:130%; font-weight: bold;'), align= "center"),
-                       #     br(),
-                       #     h4(strong("Data filtering")),
-                       #     fluidRow(
-                       #       column(6,selectInput("typeeval_heat", "Select a measure", choices = c("Cytotoxicity", "Vitality"))),
-                       #       column(6, selectInput("prod_filt_heatmap", "Select a Product Family", choices = ""))
-                       #     ),
-                       #     selectInput("purif_filt_heat", "Select a purification", choices = "", multiple = FALSE),
-                       #     fluidRow(
-                       #       column(6, selectInput("mod_filt_heatmap", "Filter Model type (rows)", choices = "",multiple = TRUE)),
-                       #       column(6, selectInput("column_filt_heatmap", "Filter Product (columns)", choices = "",multiple = TRUE))
-                       #     ),
-                       #     
-                       #     
-                       #     fluidRow(
-                       #       column(6, selectInput("dose_op_heatmap", "Operation with doses", choices = c("filter", "mean", "subtract"))),
-                       #       
-                       #       column(
-                       #         6,
-                       #         conditionalPanel(
-                       #           condition = "input.dose_op_heatmap == 'filter'",
-                       #           radioButtons("filt_dose", "Filter dose", choices = "",inline = TRUE)
-                       #         ),
-                       #         
-                       #         conditionalPanel(
-                       #           condition = "input.dose_op_heatmap == 'subtract'",
-                       #           fluidRow(
-                       #             column(7, selectInput("subdose_heatmap", "Subtract:", choices = c("30-5"))),
-                       #             column(5, style="padding-top: 5px;",br(), actionButton("revdose_heat", icon("exchange-alt"))))
-                       #         )
-                       #       )
-                       #       
-                       #       
-                       #       
-                       #     ),
-                       #     #awesomeCheckbox("logheat", "Log2 scale", value = FALSE),
-                       #     # fluidRow(
-                       #     #   column(6,
-                       #     #          selectInput("selscaleheat", "Standardize data:", 
-                       #     #                      choices = c("None" = "none", "By row" = "row", "By column" = "column"), 
-                       #     #                      selected = "column")
-                       #     #   ),
-                       #     #   conditionalPanel(condition = "input.selscaleheat == 'none'",
-                       #     #                    column(6,textInput("unitlegend_ht", "Unit measure", value = "ug/ml"))
-                       #     #   )
-                       #     # ),
-                       #     hr(),
-                       #     h4(strong("Data heatmap")),
-                       #     fluidRow(
-                       #       column(5, style="padding-top: 5px;", br(), awesomeCheckbox("show_valheat", "Show cell values")),
-                       #       column(7, 
-                       #              conditionalPanel(
-                       #                condition = "input.show_valheat == true", 
-                       #                sliderInput("range_showvalheat", "Threshold", value = 0, min = 0, max = 100)))),
-                       #     fluidRow(column(5, actionButton("view_dataheat", "Check Data", icon("eye"))),
-                       #              column(7, downloadButton("download_heat", "Download data heatmap"), style = "text-align:right")),
-                       #     tags$head(tags$style("#viewdt_heatmap .modal-dialog{ width:1300px}")),
-                       #     shinyBS::bsModal(
-                       #       "viewdt_heatmap", trigger = "view_dataheat", title = "Data Table Heatmap",
-                       #       fluidRow(
-                       #         conditionalPanel(condition = "input.dose_op_heatmap == 'filter'",
-                       #                          column(2, selectInput("dose_dtheatmap", "Select a dose", choices = ""))),
-                       #         column(10, div(DT::DTOutput("dt_heatmap"), style = "overflow-x: scroll;")))
-                       #     ),
-                       #     hr(),
-                       #     h4(strong("Annotations")),
-                       #     fluidRow(
-                       #       column(6, selectInput("selectannot_row", "Row annotation:", choices = c("Model_Family","Experiment_id", "Corrected_value"), multiple = TRUE)),
-                       #       column(6, selectInput("selectannot_col", "Column annotation:", choices = "Product_Family"))
-                       #     ),
-                       #     
-                       #     hr(),
-                       #     h4(strong("Dendrogramm options")),
-                       #     ###dendrogramm on column or row?
-                       #     h5(strong("Where to show dendrogramm")),
-                       #     fluidRow(
-                       #       column(6, materialSwitch(inputId = "rowdend", label = "Row",  value = FALSE, status = "primary", width = "90%")),
-                       #       column(6, materialSwitch(inputId = "columndend", label = "Column",  value = FALSE, status = "primary", width = "90%"))
-                       #     ),
-                       #     
-                       #     conditionalPanel(condition = "input.rowdend == 1 || input.columndend == 1",
-                       #                      fluidRow(
-                       #                        column(6,
-                       #                               selectInput("seldistheat", "Distance function:", choices = c("euclidean", "maximum", "canberra"), selected = "euclidean") #, "minkowski","manhattan",
-                       #                        ),
-                       #                        column(6,
-                       #                               selectInput("selhclustheat", "Clustering method:", choices = c("ward.D2", "complete", "average" , "median"), selected = "complete") #, "centroid","mcquitty","ward.D2", "single", 
-                       #                        )
-                       #                      )
-                       #     ),
-                       #     
-                       #     conditionalPanel(condition = "input.rowdend == 0",
-                       #                      h5(strong("Order data by annotation?")),
-                       #                      awesomeCheckbox("heatsort", label = "Order", value = TRUE)
-                       #     ),
-                       #     
-                       #     conditionalPanel(condition = "input.rowdend == 1",
-                       #                      hr(),
-                       #                      sliderInput("sliderrowheat", "Column cluster number:", min=2, max = 10, value=2, step = 1)
-                       #     ),
-                       #     
-                       #     conditionalPanel(condition = "input.columndend == 1",
-                       #                      hr(),
-                       #                      sliderInput("slidercolheat", "Column cluster number:", min=2, max = 10, value=2, step = 1)
-                       #     )
-                       #   ), #end of sidebarpanel
-                       #   
-                       #   mainPanel(width = 9, 
-                       #             InteractiveComplexHeatmap::InteractiveComplexHeatmapOutput("heatmap_output", layout = "1|(2-3)", width1 = 1000, height1 = 600)
-                       #   )
-                       # )
               )
-              
-              
             )
             
           ), #end of tabitem cytotab
@@ -521,7 +415,7 @@ app_ui <- function(request) {
                                          h5(strong("Summarized data")),
                                          materialSwitch("summ_viewtable_D1", value = TRUE, status = "primary")
                         ),
-                        circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                        circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                         tooltip = tooltipOptions(title = "Click to see options"))
                     )),
                     
@@ -531,7 +425,7 @@ app_ui <- function(request) {
                 fluidRow(
                   column(
                     1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
-                    actionButton("upD1_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("upD1_modalbutton", HTML("&nbsp;Add new data"), icon("file-arrow-up"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
                   column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
                   column(
@@ -543,7 +437,7 @@ app_ui <- function(request) {
                     condition = "output.check_ifsave_D1 == true",
                     column(
                       2, style = "text-align:center;",
-                      actionButton("save_update_D1", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                      actionButton("save_update_D1", HTML("&nbsp;Save database"), icon("floppy-disk"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
                     )
                   ),
                   conditionalPanel(
@@ -555,7 +449,7 @@ app_ui <- function(request) {
                   ),
                   column(
                     2, style = "text-align:center;",
-                    actionButton("remove_update_D1", HTML("&nbsp;Restore database"),icon("undo"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("remove_update_D1", HTML("&nbsp;Restore database"),icon("arrow-rotate-left"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
                   )
                   
                 ),
@@ -570,7 +464,7 @@ app_ui <- function(request) {
                                  hr(),
                                  conditionalPanel(
                                    condition = "output.check_data_updated_D1 == false",
-                                   div(actionButton("update_D1_bttn", "Merge!",icon("edit"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
+                                   div(actionButton("update_D1_bttn", "Merge!",icon("pen-to-square"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
                                  
                     ),
                     mainPanel(
@@ -583,7 +477,7 @@ app_ui <- function(request) {
                                                       h5(strong("Summarized data")),
                                                       materialSwitch("summ_viewtable_updated_D1", value = TRUE, status = "primary")
                                      ),
-                                     circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                                     circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                                      tooltip = tooltipOptions(title = "Click to see options"))
                             )),
                           
@@ -779,7 +673,7 @@ app_ui <- function(request) {
                           condition = "input.dose_op_heatmap_D1 == 'subtract'",
                           fluidRow(
                             column(7, selectInput("subdose_heatmap_D1", "Subtract:", choices = c("30-5"))),
-                            column(5, style="padding-top: 5px;",br(), actionButton("revdose_heat_D1", icon("exchange-alt"))))
+                            column(5, style="padding-top: 5px;",br(), actionButton("revdose_heat_D1", icon("right-left"))))
                         )
                       )
 
@@ -870,7 +764,7 @@ app_ui <- function(request) {
                                          h5(strong("Summarized data")),
                                          materialSwitch("summ_viewtable_reporter", value = TRUE, status = "primary")
                         ),
-                        circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                        circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                         tooltip = tooltipOptions(title = "Click to see options"))
                     )),
                     
@@ -881,7 +775,7 @@ app_ui <- function(request) {
                 fluidRow(
                   column(
                     1, style = "text-align:right;padding-right: 2rem; width: 25rem;",
-                    actionButton("upreporter_modalbutton", HTML("&nbsp;Add new data"), icon("file-upload"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("upreporter_modalbutton", HTML("&nbsp;Add new data"), icon("file-arrow-up"), style='background:#2AAAE2; border-color:#2AAAE2;padding:10px; font-size:140%; font-weight: bold;')
                   ),
                   column(1, style = "width: 3rem; padding: 0px;text-align:center;", strong(h3("or", style = "margin-top: 10px;"))),
                   column(
@@ -893,7 +787,7 @@ app_ui <- function(request) {
                     condition = "output.check_ifsave_reporter == true",
                     column(
                       2, style = "text-align:center;",
-                      actionButton("save_update_reporter", HTML("&nbsp;Save database"), icon("save"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
+                      actionButton("save_update_reporter", HTML("&nbsp;Save database"), icon("floppy-disk"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:140%; font-weight: bold;')
                     )
                   ),
                   conditionalPanel(
@@ -905,7 +799,7 @@ app_ui <- function(request) {
                   ),
                   column(
                     2, style = "text-align:center;",
-                    actionButton("remove_update_reporter", HTML("&nbsp;Restore database"),icon("undo"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
+                    actionButton("remove_update_reporter", HTML("&nbsp;Restore database"),icon("arrow-rotate-left"), style='background: #e74c3c; border-color: #e74c3c;padding:10px; font-size:140%; font-weight: bold;')
                   )
                 ),
                 
@@ -921,7 +815,7 @@ app_ui <- function(request) {
                       hr(),
                       conditionalPanel(
                         condition = "output.check_data_updated_reporter == false",
-                        div(actionButton("update_reporter_bttn", "Merge!",icon("edit"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
+                        div(actionButton("update_reporter_bttn", "Merge!",icon("pen-to-square"), style='background: #00a65a;border-color: #00a65a;padding:10px; font-size:110%; font-weight: bold;')), style = "text-align: center;")
                     ),
                     mainPanel(
                       width = 9,
@@ -933,7 +827,7 @@ app_ui <- function(request) {
                                                       h5(strong("Summarized data")),
                                                       materialSwitch("summ_viewtable_updated_reporter", value = TRUE, status = "primary")
                                      ),
-                                     circle = TRUE, status = "danger", icon = icon("cog"), width = "300px",
+                                     circle = TRUE, status = "danger", icon = icon("gear"), width = "300px",
                                      tooltip = tooltipOptions(title = "Click to see options"))
                             )),
                           
@@ -953,6 +847,11 @@ app_ui <- function(request) {
                     conditionalPanel(
                       condition = "input.seltype_infograph_reporter == 'Product family'",
                       awesomeCheckbox("first50_prodfam_reporter", "Shows first 50 product family", value = TRUE)
+                    ),
+                    conditionalPanel(
+                      condition = "input.seltype_infograph_reporter == 'Model types per fraction'",
+                      #selectInput("query1_repo_prodfam", "Select a Product Family", choices = ""),
+                      selectInput("query1_repo", "Select a Product", choices = "", multiple = T)
                     )
                   ),
                   mainPanel(
@@ -965,6 +864,14 @@ app_ui <- function(request) {
                     conditionalPanel(
                       condition = "input.seltype_infograph_reporter == 'Product family'",
                       shinycssloaders::withSpinner(uiOutput("prodfam_barplotUI_reporter"))
+                    ),
+                    conditionalPanel(
+                      condition = "input.seltype_infograph_reporter == 'Model types per fraction'",
+                      shinycssloaders::withSpinner(DTOutput("modtype_perfrac_seap"))
+                    ),
+                    conditionalPanel(
+                      condition = "input.seltype_infograph_reporter == 'Fractions frequence'",
+                      shinycssloaders::withSpinner(plotly::plotlyOutput("fractfreq_seap"))
                     )
                   )
                 )
@@ -973,10 +880,83 @@ app_ui <- function(request) {
           ), #end of first tabitem (data)
           
           
+          #### QUERY reporter ####
           tabItem(
-            tabName = "repoquerytab"
-            
+            tabName = "repoquerytab",
+            ###first query
+            box(
+              width = 12, status = "primary",
+              fluidRow(
+                column(3, selectInput("query_reporter", "Query type", choices = "")),
+                column(
+                  3,
+                  conditionalPanel(
+                    condition = "input.query_reporter == '1'",
+                    sliderInput("query3_repo_thresh", "Times greater than CTRL", min = 2, max = 3, value = 2.5, step = 0.1)
+                  ),
+                  
+                  # conditionalPanel(
+                  #   condition = "input.query_reporter == '3'",
+                  #   selectInput("query3_repo_modtype", "Select a Model type", choices = ""),
+                  #   
+                  # ),
+                  conditionalPanel(
+                    condition = "input.query_reporter == '4' || input.query_reporter == '6'",
+                    sliderInput("query4_repo_thresh", "Threshold greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
+                    #selectInput("query4_repo_thresh", "Select a threshold", choices = c("Greater than CTRL+", "Greater than 50% CTRL+"))
+                  )
+                ),
+                column(
+                  3,
+                  conditionalPanel(
+                    condition = "input.query_reporter == '1'",
+                    selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T)
+                  )
+                ),
+                column(
+                  1, br(),
+                  conditionalPanel(
+                    condition = "input.sel_reporter == 'SEAP'",
+                    shinyBS::bsButton("add2query_seap", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+                  ),
+                  conditionalPanel(
+                    condition = "input.sel_reporter == 'TREM2'",
+                    shinyBS::bsButton("add2query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+                  )
+                ),
+                
+                column(2, br(), actionButton("go_queryrepo", "Search", icon("magnifying-glass")))
+              )
             ),
+            
+            #### Second query seap
+            conditionalPanel(
+              condition = "output.checkadd2query_seap == 'twoquery' && input.sel_reporter == 'SEAP'",
+              box(
+                width = 12, status = "primary",
+                conditionalPanel(
+                  condition = "input.query_reporter == '1'",
+                  column(3,selectInput("query_reporter2", "Second query type", choices = ""))
+                )
+                )
+            ),
+            
+            #### Second query seap
+            conditionalPanel(
+              condition = "output.checkadd2query_trem == 'twoquery' && input.sel_reporter == 'TREM2'",
+              box(
+                width = 12, status = "primary",
+                # conditionalPanel(
+                #   condition = "input.query_reporter == '1'",
+                #   column(3,selectInput("query_reporter2", "Second query type", choices = ""))
+                # )
+              )
+            ),
+            
+            
+            box(width = 12, status = "primary", shinycssloaders::withSpinner(DTOutput("query_repo_dt")))
+            
+          ),
           
           
           tabItem(

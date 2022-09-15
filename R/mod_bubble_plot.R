@@ -40,7 +40,7 @@ mod_bubble_plot_ui <- function(id, size_choices = c("CV", "Corrected_value")){
               condition = "input.dose_op_bubb == 'subtract'", ns = ns,
               fluidRow(
                 column(6,selectInput(ns("subdose_bubb"), "Subtract:", choices = c("30-5"))),
-                column(6,style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("exchange-alt"))))
+                column(6,style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("right-left"))))
             )
             
           )
@@ -200,7 +200,7 @@ mod_bubble_plot_server <- function(id, data, type_data){
       
       ### model type filtering
       if(is.null(input$mod_filt_bubb)){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select something in the model type filtering.")), type = "error")
         validate(need(input$mod_filt_bubb, "Select something in the model type filtering."))
       }
       
@@ -279,7 +279,7 @@ mod_bubble_plot_server <- function(id, data, type_data){
       
       ##column (product) filtering
       if(is.null(input$column_filt_bubb)){
-        showNotification(tagList(icon("times-circle"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;Select something in the product (columns) filtering.")), type = "error")
         validate(need(input$column_filt_bubb, "Select something in the product (columns) filtering."))
       }
       
