@@ -2919,8 +2919,17 @@ app_server <- function( input, output, session ) {
   #foto campione marino
   output$phorganism = renderUI({
     req(input$infoprod_select_button)
+    
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
-    tags$img(src = paste0("www/foto_organismi/", prod_fam, ".jpg"), width = "100%")
+    photo_path = paste0("www/foto_organismi/", prod_fam, ".jpg")
+    
+    if(file.exists(paste0(filepath,photo_path))){
+      tags$img(src = photo_path, width = "100%")
+    }else{
+      tags$img(src = "www/image_not_found.jpg", width = "50%")
+    }
+    
   })
   
   

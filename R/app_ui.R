@@ -1071,7 +1071,7 @@ app_ui <- function(request) {
                                ),
                              fluidRow(
                                column(7, box(width = NULL, title = "Map", solidHeader = T, status = "primary", uiOutput("ui_map"))),
-                               column(5, box(width = NULL, title = "Photo", solidHeader = T, status = "primary", uiOutput("phorganism")))
+                               column(5, box(width = NULL, title = "Photo", solidHeader = T, status = "primary", uiOutput("phorganism", style = "text-align:center;")))
                              )
             )
 
