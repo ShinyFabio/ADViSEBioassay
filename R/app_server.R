@@ -23,6 +23,8 @@
 #' @importFrom grid unit gpar
 #' @importFrom InteractiveComplexHeatmap makeInteractiveComplexHeatmap
 #' @importFrom utils combn
+#' @import tmap
+#' @importFrom sf st_as_sf st_transform st_crs
 #' @noRd
 app_server <- function( input, output, session ) {
   # Your application server logic 
@@ -2753,8 +2755,7 @@ app_server <- function( input, output, session ) {
     if(input$sel_reporter == "SEAP"){
       updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL" = "1"))
     }else{
-      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+" = "4",
-                                                               "Enriched fractions" = "6"))
+      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+" = "4"))
     }
   })
   
@@ -2824,34 +2825,8 @@ app_server <- function( input, output, session ) {
     
     
     ###TREM2
-    if(input$sel_reporter == "TREM2"){
-      cnt_trem2 <- data_reporter() %>% dplyr::filter(Product_Family == "CTRL+")
-      my_trem2 <- data_reporter() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
-      
-      temp_trem2 = lapply(unique(my_trem2$Product_Family), function(m){
-        data = dplyr::filter(my_trem2, Product_Family == m)
-        if(length(unique(data$Purification)) >1){
-          #if there are multiple purification, we have to check for each purification
-          lapply(unique(data$Purification), function(k){
-            data2 = data %>% dplyr::filter(Purification == k)
-            cnt2 = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id)) %>% as.data.frame()
-            data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(input$query4_repo_thresh/100))
-          }) %>% {Reduce(rbind, .)}
-          
-        }else{
-          cnt = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id)) %>% as.data.frame()
-          data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(input$query4_repo_thresh/100))
-        }
-      }) %>% {Reduce(rbind, .)}
-      
-      if(input$query_reporter == "4"){
-        return(temp_trem2)
-      }
-      
-      if(input$query_reporter == "6"){
-        return(enriched_fractions(data_reporter = data_reporter(), repo_type = "TREM2", prod_trem = temp_trem2))
-      }
-      
+    if(input$query_reporter == "4"){
+      return(gfp_fractions(data_reporter = data_reporter(), gfp_thresh = input$query4_repo_thresh))
     }
     
   })
@@ -2868,6 +2843,8 @@ app_server <- function( input, output, session ) {
     }else{
       if(input$query_reporter == "1" && input$query_reporter2 == "3"){
         enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "SEAP")
+      }else if(input$query_reporter == "4" && input$query_reporter_trem2 == "6"){
+        enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "TREM2")
       }
     }
     
@@ -2931,12 +2908,48 @@ app_server <- function( input, output, session ) {
     toggleModal(session, "modal_infoprod", toggle = "open")
   })
 
-  output$dt_infoprod = renderDT({
+  output$dt_infoprod = renderTable({
     req(input$infoprod_select_button)
-    print(input[["infoprod_select_button"]]) #è equivalente all'$. Viene preso dall'onclick parameter dell'actionbutton (vedi data-raw)
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
-    info %>% dplyr::select(-Info) %>% dplyr::filter(Chemical_code == prod_fam)
-  },selection = "single", rownames = FALSE, options = list(scrollX = TRUE))
+    info %>% dplyr::select(-c(Info, Coordinates)) %>% dplyr::filter(Chemical_code == prod_fam)
+  },bordered = T)
+  
+  
+  
+  #foto campione marino
+  output$phorganism = renderUI({
+    req(input$infoprod_select_button)
+    prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
+    tags$img(src = paste0("www/foto_organismi/", prod_fam, ".jpg"), width = "100%")
+  })
+  
+  
+  
+  ## Mappa campione marino
+  output$ui_map = renderUI({
+    
+    output$marine_map = tmap::renderTmap({
+      req(input$infoprod_select_button)
+      prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
+      info_filt = info %>% dplyr::select(-Info) %>% dplyr::filter(Chemical_code == prod_fam)
+      validate(need(!is.na(info_filt$Coordinates), "No coordinates for this product."))
+      
+      utmcoord23 =  dplyr::mutate(info_filt, Coordinates = stringr::str_replace_all(info_filt$Coordinates, c(' ' = "", 'N' ="", 'E'=""))) %>% 
+        tidyr::separate(col = Coordinates, into = c("N", "E"), sep = ",", convert = TRUE) %>% 
+        sf::st_as_sf(coords = c("E", "N" ), crs= 4326) %>% sf::st_transform(crs = 32633)
+      
+      sf::st_crs(campania) = 32633
+      
+      tmap::tm_shape(campania) + tmap::tm_polygons(col= "provincia", alpha = 0.6) +
+        tmap::tm_shape(utmcoord23) +
+        tmap::tm_dots(col = "Chemical_code", scale = 2, palette = "Set1",id= "Chemical_code", popup.vars = TRUE) 
+      
+    })
+    
+    tmap::tmapOutput("marine_map", height = 438)
+    
+  })
+
 
   
   

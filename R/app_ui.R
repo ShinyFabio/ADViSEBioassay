@@ -10,6 +10,7 @@
 #' @importFrom plotly plotlyOutput
 #' @importFrom shinyBS bsModal
 #' @importFrom shinycssloaders withSpinner
+#' @import tmap
 #' 
 #' @noRd
 #' 
@@ -901,9 +902,8 @@ app_ui <- function(request) {
                   #   
                   # ),
                   conditionalPanel(
-                    condition = "input.query_reporter == '4' || input.query_reporter == '6'",
+                    condition = "input.query_reporter == '4'",
                     sliderInput("query4_repo_thresh", "Threshold greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
-                    #selectInput("query4_repo_thresh", "Select a threshold", choices = c("Greater than CTRL+", "Greater than 50% CTRL+"))
                   )
                 ),
                 column(
@@ -941,11 +941,12 @@ app_ui <- function(request) {
                 )
             ),
             
-            #### Second query seap
+            #### Second query trem2
             conditionalPanel(
               condition = "output.checkadd2query_trem == 'twoquery' && input.sel_reporter == 'TREM2'",
               box(
                 width = 12, status = "primary",
+                column(3,selectInput("query_reporter_trem2", "Second query type", choices = c("Enriched fractions" = "6")))
                 # conditionalPanel(
                 #   condition = "input.query_reporter == '1'",
                 #   column(3,selectInput("query_reporter2", "Second query type", choices = ""))
@@ -1036,6 +1037,7 @@ app_ui <- function(request) {
           ), #end of tabitem explore
           
           
+          #### tabitem integrazione  #####
           tabItem(
             tabName = "overinttab",
             fluidPage(
@@ -1064,10 +1066,13 @@ app_ui <- function(request) {
             tags$head(tags$style("#modal_infoprod .modal-body{ min-height:80rem}")),
             shinyBS::bsModal("modal_infoprod", title = "Information ",
                              trigger = "random_trigger", size = "large",
-                             fluidPage(
-                               column(8, box(width = NULL, status = "primary", shinycssloaders::withSpinner(DTOutput("dt_infoprod")))),
-                               column(4, box(width = NULL, status = "primary"))
-                               )
+                             fluidRow(
+                               box(width = 12, title = "Table", solidHeader = T, status = "primary", tableOutput("dt_infoprod")),
+                               ),
+                             fluidRow(
+                               column(7, box(width = NULL, title = "Map", solidHeader = T, status = "primary", uiOutput("ui_map"))),
+                               column(5, box(width = NULL, title = "Photo", solidHeader = T, status = "primary", uiOutput("phorganism")))
+                             )
             )
 
           )

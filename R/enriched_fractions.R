@@ -11,7 +11,7 @@
 #' @importFrom stringr str_split str_replace
 #'
 
-
+########### ONLY FOR SEAP 
 productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
   
   message("Searching for fractions with concentration greater than ",times_ctrl," times CTRL.")
@@ -54,15 +54,64 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
     
   }) %>% {Reduce(rbind, .)}
   
-  message("Completed! Found ", length(temp$Product), " fractions.")
-  if(shiny::isRunning()){
-    showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " different fractions.")), type = "message")
+  if(!is.null(temp)){
+    message("Completed! Found ", length(temp$Product), " fractions.")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " fractions.")), type = "message")
+    }
+  }else{
+    message("ERROR. Output is null")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
+    }
   }
-  temp
+  return(temp)
+
 }
 
 
 
+
+###### ONLY FOR TREM2
+gfp_fractions = function(data_reporter, gfp_thresh){
+  
+  message("Searching for fractions with GFP greater than ",gfp_thresh,"% of CTRL+.")
+  if(shiny::isRunning()){
+    showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for fractions with GFP greater than ",gfp_thresh,"% of CTRL+...")), type = "default")
+  }
+  
+  cnt_trem2 <- data_reporter %>% dplyr::filter(Product_Family == "CTRL+")
+  my_trem2 <- data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+  
+  temp = lapply(unique(my_trem2$Product_Family), function(m){
+    data = dplyr::filter(my_trem2, Product_Family == m)
+    if(length(unique(data$Purification)) >1){
+      #if there are multiple purification, we have to check for each purification
+      lapply(unique(data$Purification), function(k){
+        data2 = data %>% dplyr::filter(Purification == k)
+        cnt2 = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id)) %>% as.data.frame()
+        data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(gfp_thresh/100))
+      }) %>% {Reduce(rbind, .)}
+      
+    }else{
+      cnt = cnt_trem2 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id)) %>% as.data.frame()
+      data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(gfp_thresh/100))
+    }
+  }) %>% {Reduce(rbind, .)}
+  
+  if(!is.null(temp)){
+    message("Completed! Found ", length(temp$Product), " fractions.")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " fractions.")), type = "message")
+    }
+  }else{
+    message("ERROR. Output is null")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
+    }
+  }
+  return(temp)
+}
 
 
 
@@ -118,12 +167,18 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
     
   }) %>% Reduce(rbind, .)
   
-  message("Completed! Found ", length(temp2$Product), " fractions.")
-  if(shiny::isRunning()){
-    showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(temp2$Product), " enriched fractions.")), type = "message")
+  if(!is.null(temp2)){
+    message("Completed! Found ", length(temp2$Product), " fractions.")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(temp2$Product), " enriched fractions.")), type = "message")
+    }
+  }else{
+    message("ERROR. Output is null")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
+    }
   }
-  
-  
+
   return(temp2)
   
 }
