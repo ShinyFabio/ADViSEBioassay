@@ -895,12 +895,7 @@ app_ui <- function(request) {
                     condition = "input.query_reporter == '1'",
                     sliderInput("query3_repo_thresh", "Times greater than CTRL", min = 2, max = 3, value = 2.5, step = 0.1)
                   ),
-                  
-                  # conditionalPanel(
-                  #   condition = "input.query_reporter == '3'",
-                  #   selectInput("query3_repo_modtype", "Select a Model type", choices = ""),
-                  #   
-                  # ),
+
                   conditionalPanel(
                     condition = "input.query_reporter == '4'",
                     sliderInput("query4_repo_thresh", "Threshold greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
@@ -925,7 +920,7 @@ app_ui <- function(request) {
                   )
                 ),
                 
-                column(2, br(), actionButton("go_queryrepo", "Search", icon("magnifying-glass")))
+                column(2, style = "text-align: center;", br(), actionButton("go_queryrepo", "Search", icon("magnifying-glass"), style = "font-size:25px;"))
               )
             ),
             
@@ -936,9 +931,42 @@ app_ui <- function(request) {
                 width = 12, status = "primary",
                 conditionalPanel(
                   condition = "input.query_reporter == '1'",
-                  column(3,selectInput("query_reporter2", "Second query type", choices = ""))
+                  fluidRow(
+                    column(3,selectInput("query_reporter2", "Second query type", choices = "")),
+                    column(
+                      2, offset = 1, 
+                      conditionalPanel(
+                        condition = "output.check_second_seap_query == true",
+                        br(),
+                        actionButton("seap_query_plot", "Informative plots", icon("eye"))
+                      )
+                    )
+                  ),
+                  #modal
+                  shinyBS::bsModal(
+                    "modal_seap_query_plot", title = "Informative plots ",trigger = "seap_query_plot", size = "large",
+                    fluidRow(
+                      column(3, radioButtons("type_plot_seap_query", "Plot type:", choices = c("Model types per fraction", 
+                                                                                              "Fractions frequence"))),
+                      column(9, conditionalPanel(
+                        condition = "input.type_plot_seap_query == 'Model types per fraction'",
+                        selectInput("prod_dt_seap_query", "Select one or more Products", choices = "", multiple = T)
+                        ))
+                    ),
+                    fluidRow(
+                      conditionalPanel(
+                        condition = "input.type_plot_seap_query == 'Model types per fraction'",
+                        column(12,shinycssloaders::withSpinner(DTOutput("plot_dt_seap_query")))
+                      ),
+                      conditionalPanel(
+                        condition = "input.type_plot_seap_query == 'Fractions frequence'",
+                        column(12,shinycssloaders::withSpinner(plotlyOutput("plotly_seap_query")))
+                      )
+                    )
+                  ) #end of modal
+                  
                 )
-                )
+              )
             ),
             
             #### Second query trem2

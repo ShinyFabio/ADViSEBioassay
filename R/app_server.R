@@ -2504,20 +2504,7 @@ app_server <- function( input, output, session ) {
   
   
 
-  
-  #1 quante e quali linee è presente il product
-  # observeEvent(data_reporter(),{
-  #   if(input$sel_reporter == "SEAP"){
-  #     products = dplyr::filter(data_reporter(), !if_any("Product_Family", ~grepl("CTRL",.)))$Product_Family
-  #     updateSelectInput(session, "query1_repo_prodfam", choices = unique(products))
-  #   }
-  # })
-  # 
-  # observeEvent(input$query1_repo_prodfam,{
-  #   updateSelectInput(session, "query1_repo", 
-  #                     choices = unique(dplyr::filter(data_reporter(), Product_Family %in% input$query1_repo_prodfam)$Product))
-  # })
-  
+
   observeEvent(data_reporter(),{
     if(input$sel_reporter == "SEAP"){
       products = dplyr::filter(data_reporter(), !if_any("Product_Family", ~grepl("CTRL",.)))$Product
@@ -2531,10 +2518,22 @@ app_server <- function( input, output, session ) {
   output$modtype_perfrac_seap = renderDT({
     req(data_reporter())
     req(input$query1_repo)
-    data_reporter() %>% dplyr::filter(Product %in% input$query1_repo) %>% dplyr::select(Product, Model_type) %>% 
+    
+    
+    kok = data_reporter()  %>% dplyr::filter(Product %in% input$query1_repo) %>% dplyr::select(Product, Model_type) %>% 
       dplyr::distinct() %>% dplyr::mutate(Presence = "yes") %>% 
-      tidyr::pivot_wider(names_from = Model_type, values_from = Presence) %>%
-      dplyr::mutate(across(2:4, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+      tidyr::pivot_wider(names_from = Model_type, values_from = Presence) 
+    
+    for(m in unique(data_reporter()$Model_type)){
+      if(!(m %in% colnames(kok))){
+        newcol = data.frame(temp = "no")
+        colnames(newcol) = m
+        kok = kok %>% cbind(newcol)
+      }
+    }
+    
+    dplyr::mutate(kok, across(-Product, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+    
 
   }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
   options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
@@ -2851,6 +2850,68 @@ app_server <- function( input, output, session ) {
   })
   
   
+
+  output$check_second_seap_query = reactive({
+    check = tryCatch({query_repo_data2()
+      FALSE
+    },shiny.silent.error = function(e) {TRUE})
+    
+    if(check == FALSE && input$query_reporter2 == "3"){return(TRUE)}
+  })
+  outputOptions(output, "check_second_seap_query", suspendWhenHidden = FALSE)
+  
+  
+  
+  output$plotly_seap_query = renderPlotly({
+    req(query_repo_data2())
+    if(input$type_plot_seap_query == "Fractions frequence" && input$query_reporter2 == "3"){
+      #Fractions frequence
+      plot = query_repo_data2() %>% 
+        dplyr::mutate(Extract = stringr::str_replace(stringr::str_replace(Product, Product_Family, ""), "_","")) %>% 
+        dplyr::mutate(Extract = stringr::str_replace(Extract,pattern="^$",replacement="EXT")) %>% dplyr::pull(Extract) %>% table() %>%
+        as.data.frame() %>% dplyr::rename("Fraction" = ".", "Frequence" = "Freq")
+      temp = ggplot(plot, aes(x=Fraction , y = Frequence)) + geom_col(aes(fill = Fraction)) + 
+        geom_text(aes(label=Frequence),position = position_stack(vjust = 0.5))
+      plotly::ggplotly(temp)
+      
+    }else{NULL}
+    
+  })
+  
+  
+  observeEvent(query_repo_data2(),{
+    updateSelectInput(session, "prod_dt_seap_query", choices = unique(query_repo_data2()$Product))
+  })
+  
+  
+  #Model types found in a selected fraction
+  output$plot_dt_seap_query = renderDT({
+    req(query_repo_data2())
+    req(input$prod_dt_seap_query)
+    
+    if(input$type_plot_seap_query == "Model types per fraction" && input$query_reporter2 == "3"){
+      
+      kok = query_repo_data2()  %>% dplyr::filter(Product %in% input$prod_dt_seap_query) %>% dplyr::select(Product, Model_type) %>% 
+        dplyr::distinct() %>% dplyr::mutate(Presence = "yes") %>% 
+        tidyr::pivot_wider(names_from = Model_type, values_from = Presence) 
+      
+      for(m in unique(data_reporter()$Model_type)){
+        if(!(m %in% colnames(kok))){
+          newcol = data.frame(temp = "no")
+          colnames(newcol) = m
+          kok = kok %>% cbind(newcol)
+        }
+      }
+      dplyr::mutate(kok, across(-Product, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+    }else{NULL}
+    
+  }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
+  options = list(lengthMenu = c(15, 20, 25, 50), pageLength = 20, columnDefs = list(list(className = 'dt-center', targets = 1:3))))
+  
+  
+  
+  
+  
   output$query_repo_dt = renderDT({
     req(query_repo_data())
     if("hTREM2_WT_REPORTER" %in% query_repo_data()$Model_type && input$sel_reporter == "TREM2"){
@@ -2862,6 +2923,8 @@ app_server <- function( input, output, session ) {
     }
 
   }, options = list(scrollX = TRUE))
+  
+  
   
   
   

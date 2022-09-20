@@ -21,9 +21,9 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
   data_repo = data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
   
   temp = lapply(model_type, function(modt){
-    message("Searching inside ", modt, " ...")
+    message("Searching inside ", modt, "...")
     if(shiny::isRunning()){
-      showNotification(tagList(icon("gears"), HTML("&nbsp;Searching inside ", modt, " ...")), type = "default")
+      showNotification(tagList(icon("gears"), HTML("&nbsp;Searching inside ", modt, "...")), type = "default")
     }
     cnt_seap <- data_reporter %>% dplyr::filter(Product_Family == "CTRL") %>% dplyr::filter(Model_type == modt)
     data_repo2 <- data_repo %>% dplyr::filter(Model_type == modt)
@@ -121,9 +121,9 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
                               repo_type #SEAP or TREM2
                               ){ 
   
-  message("Searching for enriched fractions.")
+  message("Searching for enriched fractions...")
   if(shiny::isRunning()){
-    showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for enriched fractions.")), type = "default")
+    showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for enriched fractions...")), type = "default")
   }
   
   data_repo = data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
