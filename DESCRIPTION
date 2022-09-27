@@ -39,7 +39,8 @@ Imports:
     bsplus,
     miniUI,
     scales,
-    shinycssloaders
+    shinycssloaders,
+    tmap
 Suggestes:
     Hmisc
 Remotes: 
