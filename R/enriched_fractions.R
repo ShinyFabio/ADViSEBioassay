@@ -32,11 +32,12 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
     data_repo2 <- data_repo %>% dplyr::filter(Model_type == modt)
     
     
-    cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
-    parallel::clusterEvalQ(cl,{library(dplyr)})
-    parallel::clusterExport(cl, c("modt", "data_repo2", "data", "cnt_seap", "filter", "times_ctrl"), envir=environment())
+    #cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+    #parallel::clusterEvalQ(cl,{library(dplyr)})
+    #parallel::clusterExport(cl, c("modt", "data_repo2", "data", "cnt_seap", "filter", "times_ctrl"), envir=environment())
     
-    temp2 = parallel::parLapply(cl, unique(data_repo2$Product_Family), function(x){
+    #temp2 = parallel::parLapply(cl, unique(data_repo2$Product_Family), function(x){
+    lapply(unique(data_repo2$Product_Family), function(x){
       data = dplyr::filter(data_repo2, Product_Family == x)
       if(length(unique(data$Purification)) >1){
         #if there are multiple purification, we have to check for each purification
@@ -51,8 +52,8 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
         data %>% dplyr::filter(Concentration.average >= mean(cnt[,"Concentration.average"])*times_ctrl)
       }
     }) %>% {Reduce(rbind, .)}
-    parallel::stopCluster(cl)
-    temp2
+    #parallel::stopCluster(cl)
+    #temp2
   }) %>% {Reduce(rbind, .)}
   
   
@@ -85,12 +86,13 @@ gfp_fractions = function(data_reporter, gfp_thresh){
   cnt_trem2 <- data_reporter %>% dplyr::filter(Product_Family == "CTRL+")
   my_trem2 <- data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
   
-  cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
-  parallel::clusterEvalQ(cl,{library(dplyr)})
-  parallel::clusterExport(cl, c("my_trem2", "cnt_trem2", "filter", "gfp_thresh"),envir=environment())
+  #cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  #parallel::clusterEvalQ(cl,{library(dplyr)})
+  #parallel::clusterExport(cl, c("my_trem2", "cnt_trem2", "filter", "gfp_thresh"),envir=environment())
   
   
-  temp = parallel::parLapply(cl, unique(my_trem2$Product_Family), function(m){
+  #temp = parallel::parLapply(cl, unique(my_trem2$Product_Family), function(m){
+  temp = lapply(unique(my_trem2$Product_Family), function(m){
     data = dplyr::filter(my_trem2, Product_Family == m)
     if(length(unique(data$Purification)) >1){
       #if there are multiple purification, we have to check for each purification
@@ -106,7 +108,7 @@ gfp_fractions = function(data_reporter, gfp_thresh){
     }
   }) %>% {Reduce(rbind, .)}
   
-  parallel::stopCluster(cl)
+  #parallel::stopCluster(cl)
   
   
   if(!is.null(temp)){
@@ -144,13 +146,14 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
     dplyr::filter(Extract != "EXT")
   
   
-  cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
-  parallel::clusterEvalQ(cl,{library(dplyr)
-    library(stringr)})
-  parallel::clusterExport(cl, c("prod_trem", "data_repo", "repo_type", "filter","mutate","str_replace"),envir=environment())
+  #cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  #parallel::clusterEvalQ(cl,{library(dplyr)
+  #  library(stringr)})
+  #parallel::clusterExport(cl, c("prod_trem", "data_repo", "repo_type", "filter","mutate","str_replace"),envir=environment())
   
   
-  temp2 = parallel::parLapply(cl, unique(prod_trem$Product_Family), function(x){
+  #temp2 = parallel::parLapply(cl, unique(prod_trem$Product_Family), function(x){
+  temp2 = lapply(unique(prod_trem$Product_Family), function(x){
     data = dplyr::filter(prod_trem, Product_Family == x)
     ext = dplyr::filter(data_repo, Product_Family == x & Experiment_id %in% unique(data$Experiment_id) & Dose %in% unique(data$Dose)) %>% #anzicheè datarepo2
       dplyr::mutate(Extract = stringr::str_replace(stringr::str_replace(Product, Product_Family, ""), "_","")) %>% 
@@ -180,7 +183,7 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
     }
 
   }) %>% Reduce(rbind, .)
-  parallel::stopCluster(cl)
+  #parallel::stopCluster(cl)
   
   
   if(!is.null(temp2)){
