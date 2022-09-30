@@ -32,7 +32,7 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
     data_repo2 <- data_repo %>% dplyr::filter(Model_type == modt)
     
     
-    cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+    cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
     parallel::clusterEvalQ(cl,{library(dplyr)})
     parallel::clusterExport(cl, c("modt", "data_repo2", "data", "cnt_seap", "filter", "times_ctrl"), envir=environment())
     
@@ -85,7 +85,7 @@ gfp_fractions = function(data_reporter, gfp_thresh){
   cnt_trem2 <- data_reporter %>% dplyr::filter(Product_Family == "CTRL+")
   my_trem2 <- data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
   
-  cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
   parallel::clusterEvalQ(cl,{library(dplyr)})
   parallel::clusterExport(cl, c("my_trem2", "cnt_trem2", "filter", "gfp_thresh"),envir=environment())
   
@@ -144,7 +144,7 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
     dplyr::filter(Extract != "EXT")
   
   
-  cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  cl <- parallel::makeCluster(parallel::detectCores(logical = F)-1)
   parallel::clusterEvalQ(cl,{library(dplyr)
     library(stringr)})
   parallel::clusterExport(cl, c("prod_trem", "data_repo", "repo_type", "filter","mutate","str_replace"),envir=environment())
