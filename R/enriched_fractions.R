@@ -9,6 +9,7 @@
 #' 
 #' @importFrom dplyr mutate filter if_any
 #' @importFrom stringr str_split str_replace
+#' @import parallel
 #'
 
 ########### ONLY FOR SEAP 
@@ -18,7 +19,9 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
   if(shiny::isRunning()){
     showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for fractions with concentration greater than ",times_ctrl, "times CTRL...")), type = "default")
   }
-  data_repo = data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+  data_repo = dplyr::filter(data_reporter, !dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
+  
+  
   
   temp = lapply(model_type, function(modt){
     message("Searching inside ", modt, "...")
@@ -28,31 +31,30 @@ productive_fractions = function(data_reporter, model_type, times_ctrl = 2.5){
     cnt_seap <- data_reporter %>% dplyr::filter(Product_Family == "CTRL") %>% dplyr::filter(Model_type == modt)
     data_repo2 <- data_repo %>% dplyr::filter(Model_type == modt)
     
-    lapply(unique(data_repo2$Product_Family), function(x){
+    
+    cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+    parallel::clusterEvalQ(cl,{library(dplyr)})
+    parallel::clusterExport(cl, c("modt", "data_repo2", "data", "cnt_seap", "filter", "times_ctrl"), envir=environment())
+    
+    temp2 = parallel::parLapply(cl, unique(data_repo2$Product_Family), function(x){
       data = dplyr::filter(data_repo2, Product_Family == x)
       if(length(unique(data$Purification)) >1){
         #if there are multiple purification, we have to check for each purification
         lapply(unique(data$Purification), function(k){
           data2 = data %>% dplyr::filter(Purification == k)
           cnt2 = cnt_seap %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id)) %>% as.data.frame()
-          #if(selop_query_d1 == "greater than"){
-          #  data2 %>% dplyr::filter(Concentration.average > mean(cnt2[,"Concentration.average"])*2.5)
-          #}else{
           data2 %>% dplyr::filter(Concentration.average >= mean(cnt2[,"Concentration.average"])*times_ctrl)
-          #}
         }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
         
       }else{
         cnt = cnt_seap %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id)) %>% as.data.frame()
-        #if(selop_query_d1 == "greater than"){
-        #  data %>% dplyr::filter(Concentration.average > mean(cnt[,"Concentration.average"])*2.5)
-        # }else{
         data %>% dplyr::filter(Concentration.average >= mean(cnt[,"Concentration.average"])*times_ctrl)
-        # }
       }
     }) %>% {Reduce(rbind, .)}
-    
+    parallel::stopCluster(cl)
+    temp2
   }) %>% {Reduce(rbind, .)}
+  
   
   if(!is.null(temp)){
     message("Completed! Found ", length(temp$Product), " fractions.")
@@ -83,7 +85,12 @@ gfp_fractions = function(data_reporter, gfp_thresh){
   cnt_trem2 <- data_reporter %>% dplyr::filter(Product_Family == "CTRL+")
   my_trem2 <- data_reporter %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
   
-  temp = lapply(unique(my_trem2$Product_Family), function(m){
+  cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  parallel::clusterEvalQ(cl,{library(dplyr)})
+  parallel::clusterExport(cl, c("my_trem2", "cnt_trem2", "filter", "gfp_thresh"),envir=environment())
+  
+  
+  temp = parallel::parLapply(cl, unique(my_trem2$Product_Family), function(m){
     data = dplyr::filter(my_trem2, Product_Family == m)
     if(length(unique(data$Purification)) >1){
       #if there are multiple purification, we have to check for each purification
@@ -98,6 +105,9 @@ gfp_fractions = function(data_reporter, gfp_thresh){
       data %>% dplyr::filter(GFP.average >= mean(cnt[,"GFP.average"])*(gfp_thresh/100))
     }
   }) %>% {Reduce(rbind, .)}
+  
+  parallel::stopCluster(cl)
+  
   
   if(!is.null(temp)){
     message("Completed! Found ", length(temp$Product), " fractions.")
@@ -134,14 +144,20 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
     dplyr::filter(Extract != "EXT")
   
   
-  temp2 = lapply(unique(prod_trem$Product_Family), function(x){
-    message("Checking ", x,"...")
-    data = dplyr::filter(prod_trem, Product_Family == x) 
+  cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
+  parallel::clusterEvalQ(cl,{library(dplyr)
+    library(stringr)})
+  parallel::clusterExport(cl, c("prod_trem", "data_repo", "repo_type", "filter","mutate","str_replace"),envir=environment())
+  
+  
+  temp2 = parallel::parLapply(cl, unique(prod_trem$Product_Family), function(x){
+    data = dplyr::filter(prod_trem, Product_Family == x)
     ext = dplyr::filter(data_repo, Product_Family == x & Experiment_id %in% unique(data$Experiment_id) & Dose %in% unique(data$Dose)) %>% #anzicheè datarepo2
       dplyr::mutate(Extract = stringr::str_replace(stringr::str_replace(Product, Product_Family, ""), "_","")) %>% 
       dplyr::mutate(Extract = stringr::str_replace(Extract, pattern="^$", replacement="EXT")) %>% 
       dplyr::filter(Extract == "EXT")
-
+    
+    
     if(repo_type == "SEAP"){
       lapply(unique(ext$Model_type), function(g){
         ext_filt = ext %>% dplyr::filter(Model_type == g)
@@ -163,9 +179,9 @@ enriched_fractions = function(prod_trem, #output di productive_fractions o del p
       }) %>% Reduce(rbind, .)
     }
 
-    
-    
   }) %>% Reduce(rbind, .)
+  parallel::stopCluster(cl)
+  
   
   if(!is.null(temp2)){
     message("Completed! Found ", length(temp2$Product), " fractions.")

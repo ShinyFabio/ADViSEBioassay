@@ -25,6 +25,7 @@
 #' @importFrom utils combn
 #' @import tmap
 #' @importFrom sf st_as_sf st_transform st_crs
+#' @import parallel
 #' @noRd
 app_server <- function( input, output, session ) {
   # Your application server logic 
@@ -1460,52 +1461,49 @@ app_server <- function( input, output, session ) {
   })
   
   
-  query_D1 = reactive({
-    req(dataquery_D1())
+  query_D1 = eventReactive(input$go_queryd1,{
+    req(data_D1())
     validate(need(input$selcol_query_d1, "Select something in the MFI selection."))
 
-    mydataset_D1 = dataquery_D1()
-    cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
+    #mydataset_D1 = dataquery_D1()
+    #cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
     
-    temp = NULL
-    for(i in input$selcol_query_d1){
-      temp[[i]] = lapply(unique(mydataset_D1$Product_Family), function(x){
-        data = dplyr::filter(mydataset_D1, Product_Family == x)
-        if(length(unique(data$Purification)) >1){
-          #if there are multiple purification, we have to check for each purification
-          lapply(unique(data$Purification), function(k){
-            data2 = data %>% dplyr::filter(Purification == k)
-            cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-            if(input$selop_query_d1 == "greater than"){
-              data2 %>% dplyr::filter(get(i) > mean(cnt2[,i])*input$thresh_query_d1)
-            }else{
-              data2 %>% dplyr::filter(get(i) >= mean(cnt2[,i])*input$thresh_query_d1)
-            }
-            
-          }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
-          
-        }else{
-          cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-          if(input$selop_query_d1 == "greater than"){
-            data %>% dplyr::filter(get(i) > mean(cnt[,i])*input$thresh_query_d1)
-          }else{
-            data %>% dplyr::filter(get(i) >= mean(cnt)*input$thresh_query_d1)
-          }
-        }
-      })
-      
-      temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
-    }
-    if(length(input$selcol_query_d1) > 1){
-      if(input$andor_query_d1 == "AND"){
-        raw = Reduce(intersect, temp)
-      }else{
-        raw = Reduce(rbind, temp) %>% dplyr::distinct()
-      }
-      
-    }else{
-      raw = temp[[input$selcol_query_d1]]
-    }
+    
+    raw = queryD1(data_D1 = data_D1(),
+                  MFI = input$selcol_query_d1,
+                  operation = input$selop_query_d1,
+                  thresh = as.numeric(input$thresh_query_d1),
+                  andor = input$andor_query_d1)
+    # temp = NULL
+    # for(i in input$selcol_query_d1){
+    #   temp[[i]] = lapply(unique(mydataset_D1$Product_Family), function(x){
+    #     data = dplyr::filter(mydataset_D1, Product_Family == x)
+    #     if(length(unique(data$Purification)) >1){
+    #       #if there are multiple purification, we have to check for each purification
+    #       lapply(unique(data$Purification), function(k){
+    #         data2 = data %>% dplyr::filter(Purification == k)
+    #         cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id) & Product == "CTRL") %>% as.data.frame()
+    #         if(input$selop_query_d1 == "greater than"){
+    #           data2 %>% dplyr::filter(get(i) > mean(cnt2[,i])*input$thresh_query_d1)
+    #         }else{
+    #           data2 %>% dplyr::filter(get(i) >= mean(cnt2[,i])*input$thresh_query_d1)
+    #         }
+    #         
+    #       }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
+    #       
+    #     }else{
+    #       cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
+    #       if(input$selop_query_d1 == "greater than"){
+    #         data %>% dplyr::filter(get(i) > mean(cnt[,i])*input$thresh_query_d1)
+    #       }else{
+    #         data %>% dplyr::filter(get(i) >= mean(cnt)*input$thresh_query_d1)
+    #       }
+    #     }
+    #   })
+    #   
+    #   temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
+    # }
+
     if(input$add2query_d1 %%2 == 1){
       raw = operation_filtering(data = raw,
                                 column = input$selcol_query_d12,
@@ -2752,15 +2750,15 @@ app_server <- function( input, output, session ) {
   #update type of query based on seap or trem2
   observeEvent(input$sel_reporter,{
     if(input$sel_reporter == "SEAP"){
-      updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL" = "1"))
+      updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL")) #= '1'
     }else{
-      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+" = "4"))
+      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+")) #='4'
     }
   })
   
   observeEvent(input$query_reporter,{
 
-    if(input$query_reporter == "1"){
+    if(input$query_reporter == "Concentration greater than CTRL"){
       updateSelectInput(session, "query3_repo_modtype", choices = unique(data_reporter()$Model_type))
       updateSelectInput(session, "query_reporter2", choices = c("Enriched fractions" = "3"))
     }
@@ -2811,11 +2809,10 @@ app_server <- function( input, output, session ) {
   
   query_repo_data2 = eventReactive(input$go_queryrepo,{
     req(data_reporter())
-    print(input$query_reporter)
-    
+
     ###SEAP
     
-    if(input$query_reporter == "1"){
+    if(input$query_reporter == "Concentration greater than CTRL"){
       validate(need(input$query3_repo_modtype, "Please select at least one Model_type"))
       return(productive_fractions(data_reporter = data_reporter(),
                            model_type = input$query3_repo_modtype,
@@ -2824,7 +2821,7 @@ app_server <- function( input, output, session ) {
     
     
     ###TREM2
-    if(input$query_reporter == "4"){
+    if(input$query_reporter == "GFP fractions greater than CTRL+"){
       return(gfp_fractions(data_reporter = data_reporter(), gfp_thresh = input$query4_repo_thresh))
     }
     
@@ -2840,9 +2837,9 @@ app_server <- function( input, output, session ) {
     if(nqueryseap == "onequery" && nquerytrem == "onequery"){
       return(query_repo_data2())
     }else{
-      if(input$query_reporter == "1" && input$query_reporter2 == "3"){
+      if(input$query_reporter == "Concentration greater than CTRL" && input$query_reporter2 == "3"){
         enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "SEAP")
-      }else if(input$query_reporter == "4" && input$query_reporter_trem2 == "6"){
+      }else if(input$query_reporter == "GFP fractions greater than CTRL+" && input$query_reporter_trem2 == "6"){
         enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "TREM2")
       }
     }
@@ -2902,7 +2899,7 @@ app_server <- function( input, output, session ) {
           kok = kok %>% cbind(newcol)
         }
       }
-      dplyr::mutate(kok, across(-Product, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+      dplyr::mutate(kok, across(-Product, ~case_when(. == "yes" ~  yes_icon, TRUE ~  no_icon)))
     }else{NULL}
     
   }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
@@ -2952,7 +2949,7 @@ app_server <- function( input, output, session ) {
     
     lapply(all_databases(), function(x) x %>% dplyr::pull(Product_Family) %>% unique()) %>% 
       make_check_table() %>%
-      dplyr::mutate(across(2:5, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
+      dplyr::mutate(across(2:5, ~case_when(. == "yes" ~  yes_icon, . == "no" ~ no_icon)))
   })
   
   output$checktable <- DT::renderDT({

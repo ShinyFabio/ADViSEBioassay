@@ -2,7 +2,7 @@
 #' 
 #' @param request Internal parameter for `{shiny}`. 
 #'     DO NOT REMOVE.
-#' @rawNamespace import(shiny, except = c(actionButton, column, insertTab, tabsetPanel))
+#' @import shiny
 #' @importFrom DT DTOutput
 #' @import shinyWidgets
 #' @import shinydashboard
@@ -522,30 +522,32 @@ app_ui <- function(request) {
           
           
           
-          #### tabitem d1 query ####
+          #### tabitem D1 QUERY ####
           tabItem(
             tabName = "d1querytab",
             
             ###first query
-            box(
-              width = 12, status = "primary",
+            column(
+              8,
+              box(
+              width = NULL, status = "primary",
               fluidRow(
                 # column(3,
                 #        selectInput("filtmfi_query_d1", "Filter Model_type", choices = "", multiple = TRUE),
                 #        radioButtons("andor_query_d1", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
                 # ),
-                column(3,
+                column(4,
                        selectInput("selcol_query_d1", "MFI", choices = c( "CD40","MHC-II", "CD80"), multiple = TRUE),
                        radioButtons("andor_query_d1", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
                 ),
-                column(2,
+                column(3,
                        selectInput("selop_query_d1", "Operator", choices = c("greater than", "greater than or equal"))
                 ),
                 # conditionalPanel(
                 #   condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
-                  column(2, numericInput("thresh_query_d1", "Times", value = 2.5)),
+                  column(3, sliderInput("thresh_query_d1", "Times", value = 2.5,min = 1, max = 3, step = 0.1)),
                 #),
-                column(1, br(),shinyBS::bsButton("add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus")))
+                column(2, br(),shinyBS::bsButton("add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus")))
               )
             ),
             
@@ -553,22 +555,26 @@ app_ui <- function(request) {
             ###second query
             conditionalPanel(
               condition = "output.checkadd2query_D1 == 'twoquery'",
-              box(width = 12, status = "primary",
+              box(width = NULL, status = "primary",
                   fluidRow(
-                    column(3,
-                           selectInput("selcol_query_d12", "Column", choices = "")
-                    ),
-                    column(2,
-                           selectInput("selop_query_d12", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                    column(4, selectInput("selcol_query_d12", "Column", choices = "")),
+                    column(
+                      3,
+                      selectInput("selop_query_d12", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
                     ),
                     conditionalPanel(
                       condition = "input.selop_query_d12 != 'max' && input.selop_query_d12 != 'min'",
-                      column(2, numericInput("thresh_query_d12", "Threshold", value = 1))
-                    )
+                      column(3, numericInput("thresh_query_d12", "Threshold", value = 1)))
                   )
-                  
               )
+            )
             ),
+            
+            box(width = 4, status = "primary",
+                column(12, style = "text-align: center;", br(), br(), actionButton("go_queryd1", "Search", icon("magnifying-glass"), style = "font-size:25px;"), br())),
+            
+            
+
             
             
             fluidRow(column(12,
@@ -892,19 +898,19 @@ app_ui <- function(request) {
                 column(
                   3,
                   conditionalPanel(
-                    condition = "input.query_reporter == '1'",
+                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
                     sliderInput("query3_repo_thresh", "Times greater than CTRL", min = 2, max = 3, value = 2.5, step = 0.1)
                   ),
 
                   conditionalPanel(
-                    condition = "input.query_reporter == '4'",
+                    condition = "input.query_reporter == 'GFP fractions greater than CTRL+'",
                     sliderInput("query4_repo_thresh", "Threshold greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
                   )
                 ),
                 column(
                   3,
                   conditionalPanel(
-                    condition = "input.query_reporter == '1'",
+                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
                     selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T)
                   )
                 ),
@@ -930,7 +936,7 @@ app_ui <- function(request) {
               box(
                 width = 12, status = "primary",
                 conditionalPanel(
-                  condition = "input.query_reporter == '1'",
+                  condition = "input.query_reporter == 'Concentration greater than CTRL'",
                   fluidRow(
                     column(3,selectInput("query_reporter2", "Second query type", choices = "")),
                     column(
@@ -975,10 +981,6 @@ app_ui <- function(request) {
               box(
                 width = 12, status = "primary",
                 column(3,selectInput("query_reporter_trem2", "Second query type", choices = c("Enriched fractions" = "6")))
-                # conditionalPanel(
-                #   condition = "input.query_reporter == '1'",
-                #   column(3,selectInput("query_reporter2", "Second query type", choices = ""))
-                # )
               )
             ),
             

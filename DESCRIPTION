@@ -40,8 +40,8 @@ Imports:
     miniUI,
     scales,
     shinycssloaders,
-    tmap
-Suggestes:
+    tmap,
+    parallel,
     Hmisc
 Remotes: 
     github::jokergoo/ComplexHeatmap,
