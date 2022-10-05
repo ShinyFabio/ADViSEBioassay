@@ -696,7 +696,7 @@ app_server <- function( input, output, session ) {
   
   observeEvent(heat_informative(),{
     InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, heat_informative(), output_id  = "heatmap_inform_output",
-                                                               layout = "1|(2-3)", width1 = 1000, height1 = 800)
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 800, close_button = FALSE)
   })
   
   
@@ -744,7 +744,7 @@ app_server <- function( input, output, session ) {
 
   
   
-  query_cyto = reactive({
+  query_cyto = eventReactive(input$go_querycyto,{
     req(dataquery_cyto())
     
     validate(need(input$filtmod_query_cyto, "Select something in the Model_type filtering."))
@@ -755,6 +755,9 @@ app_server <- function( input, output, session ) {
       data = dataquery_cyto() %>% dplyr::filter(Model_type %in% input$filtmod_query_cyto)
       leng_modtype = length(input$filtmod_query_cyto)
     }
+    
+    showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for fractions...")), type = "default")
+    
     
     temp = list()
     for(i in c("raw","summ")){
@@ -785,6 +788,9 @@ app_server <- function( input, output, session ) {
       
       temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
     }
+    if(!is.null(temp)){
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " fractions.")), type = "message")
+    }
     
     return(temp)
   })
@@ -806,6 +812,9 @@ app_server <- function( input, output, session ) {
 
   },options = list(scrollX = TRUE))
   
+  
+  
+  
   ##### bubbleplot ####
   
   mod_bubble_plot_server("bubbleplot_cyto", data = data, type_data = reactive("cyto"))
@@ -820,7 +829,7 @@ app_server <- function( input, output, session ) {
   
   observeEvent(data_heatmap_cyto(),{
     InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, data_heatmap_cyto(), output_id  = "heatmap_output_cyto",
-                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600)
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600, close_button = FALSE)
   })
   
  
@@ -2003,7 +2012,7 @@ app_server <- function( input, output, session ) {
 
   observeEvent(heatmap_D1(),{
     InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, heatmap_D1(), output_id  = "heatmap_D1_output",
-                                                               layout = "1|(2-3)", width1 = 650, height1 = 700)
+                                                               layout = "1|(2-3)", width1 = 650, height1 = 700, close_button = FALSE)
   })
 
 
@@ -2740,7 +2749,7 @@ app_server <- function( input, output, session ) {
   
   observeEvent(data_heatmap_reporter(),{
     InteractiveComplexHeatmap::InteractiveComplexHeatmapWidget(input, output, session, data_heatmap_reporter(), output_id  = "heatmap_output_reporter",
-                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600)
+                                                               layout = "1|(2-3)", width1 = 1000, height1 = 600, close_button = FALSE)
   })
   
   
@@ -2760,7 +2769,7 @@ app_server <- function( input, output, session ) {
 
     if(input$query_reporter == "Concentration greater than CTRL"){
       updateSelectInput(session, "query3_repo_modtype", choices = unique(data_reporter()$Model_type))
-      updateSelectInput(session, "query_reporter2", choices = c("Enriched fractions" = "3"))
+      updateSelectInput(session, "query_reporter2", choices = c("Enriched fractions"))
     }
   })
   
@@ -2769,9 +2778,9 @@ app_server <- function( input, output, session ) {
 
   #output to show the second row
   output$checkadd2query_seap = reactive({
-    if(input$add2query_seap %%2 == 0){
-      "onequery"
-    }else{"twoquery"}
+    if(input$add2query_seap %%2 != 0 && input$sel_reporter == 'SEAP'){
+      "twoquery"
+    }else{"onequery"}
     })
   outputOptions(output, "checkadd2query_seap", suspendWhenHidden = FALSE)
   
@@ -2789,9 +2798,9 @@ app_server <- function( input, output, session ) {
   
   #output to show the second row
   output$checkadd2query_trem = reactive({
-    if(input$add2query_trem %%2 == 0){
-      "onequery"
-    }else{"twoquery"}
+    if(input$add2query_trem %%2 != 0 && input$sel_reporter == 'TREM2'){
+      "twoquery"
+    }else{"onequery"}
   })
   outputOptions(output, "checkadd2query_trem", suspendWhenHidden = FALSE)
   
@@ -2805,6 +2814,24 @@ app_server <- function( input, output, session ) {
   })
   
   
+  #output to show the third row
+  output$checkadd3query_trem = reactive({
+    if(input$add3query_trem %%2 != 0 && input$sel_reporter == 'TREM2' && input$query_reporter_trem2 == 'Vitality fractions greater than CTRL+'){
+      "three"
+    }else{"no"}
+  })
+  outputOptions(output, "checkadd3query_trem", suspendWhenHidden = FALSE)
+  
+  
+  #to update the button
+  observeEvent(input$add3query_trem,{
+    if(input$add3query_trem %%2 == 1){
+      updateButton(session, "add3query_trem",label = HTML("&nbsp;Remove"), style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add3query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+    }
+  })
+  
   
   
   query_repo_data2 = eventReactive(input$go_queryrepo,{
@@ -2814,15 +2841,21 @@ app_server <- function( input, output, session ) {
     
     if(input$query_reporter == "Concentration greater than CTRL"){
       validate(need(input$query3_repo_modtype, "Please select at least one Model_type"))
-      return(productive_fractions(data_reporter = data_reporter(),
-                           model_type = input$query3_repo_modtype,
-                           times_ctrl = input$query3_repo_thresh))
+      return(active_fractions(data_reporter = data_reporter(),
+                              model_type = input$query3_repo_modtype,
+                              variable = "Concentration.average",
+                              type_ctrl = "CTRL",
+                              thresh_ctrl = input$query3_repo_thresh))
     }
     
     
     ###TREM2
     if(input$query_reporter == "GFP fractions greater than CTRL+"){
-      return(gfp_fractions(data_reporter = data_reporter(), gfp_thresh = input$query4_repo_thresh))
+      return(active_fractions(data_reporter = data_reporter(),
+                              model_type = unique(data_reporter()$Model_type),
+                              variable = "GFP.average",
+                              type_ctrl = "CTRL+",
+                              thresh_ctrl = input$query4_repo_thresh))
     }
     
   })
@@ -2837,10 +2870,31 @@ app_server <- function( input, output, session ) {
     if(nqueryseap == "onequery" && nquerytrem == "onequery"){
       return(query_repo_data2())
     }else{
-      if(input$query_reporter == "Concentration greater than CTRL" && input$query_reporter2 == "3"){
+      #SEAP
+      if(input$query_reporter == "Concentration greater than CTRL" && input$query_reporter2 == "Enriched fractions"){
         enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "SEAP")
-      }else if(input$query_reporter == "GFP fractions greater than CTRL+" && input$query_reporter_trem2 == "6"){
-        enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "TREM2")
+        
+        ##TREM2
+      }else if(input$query_reporter == "GFP fractions greater than CTRL+"){
+        if(input$query_reporter_trem2 == "Enriched fractions"){
+          enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "TREM2")
+        }else{
+          
+          query_trem_vita = active_fractions(data_reporter = data_reporter(),
+                                              model_type = unique(data_reporter()$Model_type),
+                                              variable = "Vitality.average",
+                                              type_ctrl = "CTRL+",
+                                              thresh_ctrl = input$query_vita_repo_thresh)
+          query_trem_vita = intersect(query_repo_data2(), query_trem_vita)
+          
+          #third query
+          if(input$add3query_trem %%2 != 0 && input$query_reporter_trem3 == "Enriched fractions"){
+            enriched_fractions(prod_trem = query_trem_vita, data_reporter = data_reporter(), repo_type = "TREM2")
+          }else{
+            query_trem_vita
+          }
+          
+        }
       }
     }
     
@@ -2853,7 +2907,7 @@ app_server <- function( input, output, session ) {
       FALSE
     },shiny.silent.error = function(e) {TRUE})
     
-    if(check == FALSE && input$query_reporter2 == "3"){return(TRUE)}
+    if(check == FALSE && input$query_reporter2 == "Enriched fractions"){return(TRUE)}
   })
   outputOptions(output, "check_second_seap_query", suspendWhenHidden = FALSE)
   
@@ -2861,7 +2915,7 @@ app_server <- function( input, output, session ) {
   
   output$plotly_seap_query = renderPlotly({
     req(query_repo_data2())
-    if(input$type_plot_seap_query == "Fractions frequence" && input$query_reporter2 == "3"){
+    if(input$type_plot_seap_query == "Fractions frequence" && input$query_reporter2 == "Enriched fractions"){
       #Fractions frequence
       plot = query_repo_data2() %>% 
         dplyr::mutate(Extract = stringr::str_replace(stringr::str_replace(Product, Product_Family, ""), "_","")) %>% 
@@ -2886,7 +2940,7 @@ app_server <- function( input, output, session ) {
     req(query_repo_data2())
     req(input$prod_dt_seap_query)
     
-    if(input$type_plot_seap_query == "Model types per fraction" && input$query_reporter2 == "3"){
+    if(input$type_plot_seap_query == "Model types per fraction" && input$query_reporter2 == "Enriched fractions"){
       
       kok = query_repo_data2()  %>% dplyr::filter(Product %in% input$prod_dt_seap_query) %>% dplyr::select(Product, Model_type) %>% 
         dplyr::distinct() %>% dplyr::mutate(Presence = "yes") %>% 
@@ -2980,7 +3034,12 @@ app_server <- function( input, output, session ) {
   output$phorganism = renderUI({
     req(input$infoprod_select_button)
     
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
+    #for package
+    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
+    
+    #for dev
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
+    
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
     photo_path = paste0("www/foto_organismi/", prod_fam, ".jpg")
     
@@ -3062,6 +3121,322 @@ app_server <- function( input, output, session ) {
     req(checktable_models())
     checktable_models()$seap
   },width = "100%",bordered = T,align = "lc", sanitize.text.function = function(x) x)
+  
+  
+  ##### QUERY INTEGRATION #####
+  
+  ##### options for first query #####
+  observeEvent(input$seldata_query1_int,{
+    if(input$seldata_query1_int == "TREM2"){
+      updateSelectInput(session, "queryint_active_var1", choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average"))
+    }
+    if(input$seldata_query1_int == "SEAP"){
+      updateSelectInput(session, "queryint_active_var1", choices = c("Concentration" = "Concentration.average"))
+    }
+  })
+  
+  observeEvent(input$queryint_active_var1,{
+    if(input$queryint_active_var1 == "GFP.average"){
+      updateSelectInput(session, "queryint_active_var2", choices = c("Vitality" = "Vitality.average"))
+    }else{
+      updateSelectInput(session, "queryint_active_var2", choices = c("GFP" = "GFP.average"))
+    }
+  })
+  
+
+  
+  #to update the button
+  observeEvent(input$add_queryint_active_var,{
+    if(input$add_queryint_active_var %%2 == 1){
+      updateButton(session, "add_queryint_active_var",label = "", style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add_queryint_active_var", label = "", style="success", icon("plus"))
+    }
+  })
+  
+  
+  
+  #output to show the second column
+  output$checkadd_queryint_active_var = reactive({
+    if(input$add_queryint_active_var %%2 != 0 && input$seldata_query1_int == 'TREM2'){
+      "twovar"
+    }else{"onevar"}
+  })
+  outputOptions(output, "checkadd_queryint_active_var", suspendWhenHidden = FALSE)
+  
+
+  
+  observeEvent(input$queryint_active_var1,{
+    name = gsub(".average", "",input$queryint_active_var1)
+    min = ifelse(name == "Concentration", 100, 10)
+    max = ifelse(name == "Concentration", 300, ifelse(name == "GFP",100,200))
+    type_ctrl = ifelse(name == "Concentration", "CTRL", "CTRL+")
+    updateSliderInput(session, "thresh_active_integ1", 
+                      paste0("Threshold fraction greater than ",type_ctrl," (%)"), 
+                      min = min, max = max, value = round((min+max)/2,-1), step = 10)
+  })
+  
+  
+  #update modeltype for seap
+  observeEvent(input$seldata_query1_int,{
+    if(!is.null(loaded_database_seap())){
+      updateSelectInput(session,"queryinteg_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+    }
+  })
+  
+  
+  
+  
+  
+  
+  #### options for second query ####
+  
+  
+  ### cytotoxicitiy
+  observeEvent(dataquery_cyto(),{
+    updateSelectInput(session, "filtmod_query_cyto_integ", choices = c("All",unique(dataquery_cyto()$Model_type)))
+    
+    cols = dataquery_cyto() %>% dplyr::select(where(is.double)) %>% dplyr::select(-Dose) %>% colnames()
+    updateSelectInput(session, "selcol_query_cyto_integ", choices = cols)
+
+  })
+  
+  
+  
+  
+  ### TREM2 and SEAP
+ 
+  observeEvent(input$seldata_query2_int,{
+    if(input$seldata_query2_int == "TREM2"){
+      updateSelectInput(session, "queryint2_active_var1", choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average"))
+    }
+    if(input$seldata_query2_int == "SEAP"){
+      updateSelectInput(session, "queryint2_active_var1", choices = c("Concentration" = "Concentration.average"))
+    }
+    
+    #update modeltype for seap
+    if(!is.null(loaded_database_seap())){
+      updateSelectInput(session,"queryinteg2_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+    }
+  })
+  
+  
+  
+  observeEvent(input$queryint2_active_var1,{
+    if(input$queryint2_active_var1 == "GFP.average"){
+      updateSelectInput(session, "queryint2_active_var2", choices = c("Vitality" = "Vitality.average"))
+    }else{
+      updateSelectInput(session, "queryint2_active_var2", choices = c("GFP" = "GFP.average"))
+    }
+    
+    #update slider threshold
+    min = ifelse(input$queryint2_active_var1 == "Concentration.average", 100, 10)
+    max = ifelse(input$queryint2_active_var1 == "Concentration.average", 300, 
+                 ifelse(input$queryint2_active_var1 == "GFP.average",100,200))
+    type_ctrl = ifelse(input$queryint2_active_var1 == "Concentration.average", "CTRL", "CTRL+")
+    updateSliderInput(session, "thresh_active2_integ1", 
+                      paste0("Threshold fraction greater than ",type_ctrl," (%)"), 
+                      min = min, max = max, value = round((min+max)/2,-1), step = 10)
+  })
+  
+
+  
+  
+  #to update the button
+  observeEvent(input$add_queryint2_active_var,{
+    if(input$add_queryint2_active_var %%2 == 1){
+      updateButton(session, "add_queryint2_active_var",label = "", style = "danger", icon("minus")) 
+    }else{
+      updateButton(session, "add_queryint2_active_var", label = "", style="success", icon("plus"))
+    }
+  })
+  
+  
+  #output to show the second column
+  output$checkadd_queryint2_active_var = reactive({
+    if(input$add_queryint2_active_var %%2 != 0 && input$seldata_query2_int == 'TREM2'){
+      "twovar"
+    }else{"onevar"}
+  })
+  outputOptions(output, "checkadd_queryint2_active_var", suspendWhenHidden = FALSE)
+  
+  
+  
+
+
+  
+  
+  
+  
+  ##### final query #####
+  query_integr = eventReactive(input$go_queryint,{
+    
+    #### first query______________________
+    if(input$seldata_query1_int == "SEAP"){
+      validate(need(input$queryinteg_seap_modtype, "Please select at least one Model_type"))
+      req(loaded_database_seap())
+      data = loaded_database_seap()$mydataset
+      
+      firstquery = active_fractions(data_reporter = data,
+                       model_type = input$queryinteg_seap_modtype,
+                       variable = input$queryint_active_var1,
+                       type_ctrl = "CTRL",
+                       thresh_ctrl = input$thresh_active_integ1)
+      
+      
+    }else if(input$seldata_query1_int == "TREM2"){
+      req(loaded_database_trem2())
+      data = loaded_database_trem2()$mydataset
+      
+      query_active1 = active_fractions(data_reporter = data,
+                                       model_type = unique(data$Model_type),
+                                       variable = input$queryint_active_var1,
+                                       type_ctrl = "CTRL+",
+                                       thresh_ctrl = input$thresh_active_integ1)
+      #2 variables
+      if(input$add_queryint_active_var %%2 != 0){
+        
+        query_active2 = active_fractions(data_reporter = data,
+                                         model_type = unique(data$Model_type),
+                                         variable = input$queryint_active_var2,
+                                         type_ctrl = "CTRL+",
+                                         thresh_ctrl = input$thresh_active_integ2)
+        firstquery = intersect(query_active1, query_active2)
+        
+      }else{
+        firstquery = query_active1
+      }
+      
+    }
+    
+    
+    #### second query______________________
+    
+    #take only the products from the first query
+    #products_first = paste(firstquery$Product, firstquery$Dose, firstquery$Purification, sep = ".")
+    
+    firstquery = firstquery %>% dplyr::mutate(sample = paste(Product_Family,Product, Dose, Purification, sep = "."))%>%
+      dplyr::select(-c(Product_Family, Product, Dose, Purification))
+    
+    
+    ### CYTO
+    if(input$seldata_query2_int == "Cytotoxicity"){
+      req(dataquery_cyto())
+      data = dataquery_cyto() %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
+        dplyr::filter(sample %in% firstquery$sample)
+      
+      validate(need(input$filtmod_query_cyto_integ, "Select something in the Model_type filtering."))
+      # if("All" %in% input$filtmod_query_cyto_integ){
+      #   leng_modtype = length(unique(dataquery_cyto()$Model_type))
+      # }else{
+      #   leng_modtype = length(input$filtmod_query_cyto_integ)
+      # }
+      
+      if(!("All" %in% input$filtmod_query_cyto_integ)){
+        data = dplyr::filter(data, Model_type %in% input$filtmod_query_cyto_integ)
+      }
+      
+      if(input$selop_query_cyto_integ %in% c("max","min")){
+        mess = paste("&nbsp;Searching for fractions with", input$selcol_query_cyto_integ, input$selop_query_cyto_integ,"...")
+      }else{
+        mess = paste("&nbsp;Searching for fractions with", input$selcol_query_cyto_integ, input$selop_query_cyto_integ,input$thresh_query_cyto_integ,"...")
+      }
+
+      showNotification(tagList(icon("gears"), HTML(mess)), type = "default")
+
+      secondquery = lapply(unique(data$Model_type), function(x){
+        operation_filtering(data = dplyr::filter(data, Model_type == x), 
+                            column = input$selcol_query_cyto_integ,
+                            operator = input$selop_query_cyto_integ,
+                            value = input$thresh_query_cyto_integ,
+                            n_query = "one",
+                            type_output = "raw")
+      }) %>% {Reduce(rbind, .)}
+      
+      if(!is.null(secondquery)){
+        showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
+      }
+
+
+      # if(input$andor_query_cyto == "AND"){
+      #   joined = temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
+      #     dplyr::filter(n == leng_modtype) %>% dplyr::pull(Product_Family)
+      #   
+      #   temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
+      # }
+      
+      
+    #### SEAP 
+    }else if(input$seldata_query2_int == "SEAP"){
+      
+      validate(need(input$queryinteg2_seap_modtype, "Please select at least one Model_type"))
+      req(loaded_database_seap())
+      data = loaded_database_seap()$mydataset %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
+        dplyr::filter(sample %in% firstquery$sample)
+      
+      #riattacco i CTRL+ che erano stati eliminati
+      cntrs = loaded_database_seap()$mydataset %>% dplyr::filter(Experiment_id %in% data$Experiment_id & Product_Family == "CTRL") %>% 
+        dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
+      data = rbind(data,cntrs)
+      
+      secondquery = active_fractions(data_reporter = data,
+                                     model_type = input$queryinteg2_seap_modtype,
+                                     variable = input$queryint2_active_var1,
+                                     type_ctrl = "CTRL",
+                                     thresh_ctrl = input$thresh_active2_integ1)
+      
+    #### TREM2
+    }else if(input$seldata_query2_int == "TREM2"){
+      req(loaded_database_trem2())
+      data = loaded_database_trem2()$mydataset %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
+        dplyr::filter(sample %in% firstquery$sample)
+      
+      #riattacco i CTRL+ che erano stati eliminati
+      cntrs = loaded_database_trem2()$mydataset %>% dplyr::filter(Experiment_id %in% data$Experiment_id & Product_Family == "CTRL+") %>% 
+        dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
+      data = rbind(data,cntrs)
+      
+      query_active21 = active_fractions(data_reporter = data,
+                                        model_type = unique(data$Model_type),
+                                        variable = input$queryint2_active_var1,
+                                        type_ctrl = "CTRL+",
+                                        thresh_ctrl = input$thresh_active2_integ1)
+      #2 variables
+      if(input$add_queryint2_active_var %%2 != 0){
+        
+        query_active22 = active_fractions(data_reporter = data,
+                                          model_type = unique(data$Model_type),
+                                          variable = input$queryint2_active_var2,
+                                          type_ctrl = "CTRL+",
+                                          thresh_ctrl = input$thresh_active2_integ2,
+                                          final_msg = FALSE)
+        secondquery = intersect(query_active21, query_active22)
+        showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
+        
+        
+      }else{
+        secondquery = query_active21
+      }
+    }
+    
+    
+    
+    suffx2 = paste0(".",ifelse(input$seldata_query2_int == "Cytotoxicity", "CYTO", input$seldata_query2_int))
+    suffx1 = paste0(".",input$seldata_query1_int)
+    
+    mydataset_join = dplyr::inner_join(secondquery, firstquery, by = "sample", suffix = c(suffx2, suffx1)) %>% dplyr::select(-sample)
+    col_order = c("Product_Family", "Product", "Dose", "Purification")
+    col_order = c(col_order,colnames(dplyr::select(mydataset_join,-col_order)))
+    mydataset_join[,col_order]
+    
+    
+  })
+  
+  
+  output$query_integ_dt = renderDT({
+    req(query_integr())
+    query_integr()
+  },options = list(scrollX = TRUE))
   
   
 }

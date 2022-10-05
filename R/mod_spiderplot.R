@@ -76,8 +76,7 @@ mod_spiderplot_server <- function(id, data, type_data){
         updateSelectInput(session, "typeeval_spid", choices = c("Concentration" = "Concentration.average"))
       }
       if(type_data() == "TREM2"){
-        updateSelectInput(session, "typeeval_spid", choices = c("Cytotoxicity" = "Cytotoxicity.average",
-                                                                "Vitality" = "Vitality.average",
+        updateSelectInput(session, "typeeval_spid", choices = c("Vitality" = "Vitality.average",
                                                                 "GFP" = "GFP.average"))
       }
     })

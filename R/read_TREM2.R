@@ -130,7 +130,9 @@ read_TREM2 = function(file_explist, file_target, filter.na = "Product"){
     mydata$Vitality = mydata$Vitality*100 #because 96% is read as 0.96
     mydata$GFP = mydata$GFP *100
   }
-  mydata = tibble::add_column(mydata, Cytotoxicity = 100 - mydata$Vitality, .after = "Vitality")
+  
+  # !!!!!!!!!!!!  rimosso cyto ma testare ovunque !!!!!!!!!!
+  #mydata = tibble::add_column(mydata, Cytotoxicity = 100 - mydata$Vitality, .after = "Vitality")
   
   
   return(mydata)

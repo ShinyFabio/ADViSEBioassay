@@ -49,11 +49,13 @@ summarise_cytoxicity = function(X, group , method = "cyto", markers_name = c("CD
   }else if(method == "trem"){
     X <- X %>% dplyr::group_by(dplyr::across(dplyr::all_of(group))) %>%
       dplyr::summarise(
-        Cytotoxicity.average = mean(Cytotoxicity, na.rm=TRUE),
-        Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
-        Cytotoxicity.nreps =n(),
+        #Cytotoxicity.average = mean(Cytotoxicity, na.rm=TRUE),
+        #Cytotoxicity.sd = sd(Cytotoxicity,na.rm = TRUE),
+        #Cytotoxicity.nreps =n(),
+        #Cytotoxicity.CV = fun_CV(Cytotoxicity),
         Vitality.average = mean(Vitality, na.rm=TRUE),
-        Cytotoxicity.CV = fun_CV(Cytotoxicity),
+        Vitality.sd = sd(Vitality,na.rm = TRUE),
+        Vitality.nreps =n(),
         Vitality.CV = fun_CV(Vitality),
         GFP.average = mean(GFP, na.rm = TRUE),
         GFP.CV = fun_CV(GFP)

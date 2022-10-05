@@ -254,51 +254,69 @@ app_ui <- function(request) {
           tabItem(
             tabName = "cytoquerytab",
             
-            ###first query
-            box(
-              width = 12, status = "primary",
-              fluidRow(
-                column(3,
-                  selectInput("filtmod_query_cyto", "Filter Model_type", choices = "", multiple = TRUE),
-                  radioButtons("andor_query_cyto", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
-                ),
-                column(3,
-                  selectInput("selcol_query_cyto", "Column", choices = "")
-                ),
-                column(2,
-                  selectInput("selop_query_cyto", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
-                ),
-                conditionalPanel(
-                  condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
-                  column(2, numericInput("thresh_query_cyto", "Threshold", value = 1))
-                ),
-                column(1, br(),shinyBS::bsButton("add2query_cyto", label = HTML("&nbsp;Add"), style="success", icon("plus")))
-              )
-            ),
-            
-            
-            ###second query
-            conditionalPanel(condition = "output.checkadd2query_cyto == 'twoquery'",
-              box(width = 12, status = "primary",
-                  fluidRow(
-                    # column(3,
-                    #   selectInput("filtmod_query_cyto2", "Filter Model_type", choices = "", multiple = TRUE),
-                    #   radioButtons("andor_query_cyto2", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
-                    # ),
-                    column(3,
-                      selectInput("selcol_query_cyto2", "Column", choices = "")
-                    ),
-                    column(2,
-                      selectInput("selop_query_cyto2", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
-                    ),
+            column(
+              9,
+              
+              ###first query
+              box(
+                width = NULL, status = "primary",
+                fluidRow(
+                  column(3,
+                         selectInput("filtmod_query_cyto", "Filter Model_type", choices = "", multiple = TRUE),
+                         radioButtons("andor_query_cyto", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
+                  ),
+                  column(3,
+                         selectInput("selcol_query_cyto", "Column", choices = "")
+                  ),
+                  column(2,
+                         selectInput("selop_query_cyto", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                  ),
+                  column(2,
                     conditionalPanel(
-                      condition = "input.selop_query_cyto2 != 'max' && input.selop_query_cyto2 != 'min'",
-                      column(2, numericInput("thresh_query_cyto2", "Threshold", value = 1))
+                      condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
+                      numericInput("thresh_query_cyto", "Threshold", value = 1))
+                  ),
+                  column(2, style = "text-align:center;",br(),shinyBS::bsButton("add2query_cyto", label = HTML("&nbsp;Add"), style="success", icon("plus")))
+                )
+              ),
+              
+              
+              ###second query
+              conditionalPanel(
+                condition = "output.checkadd2query_cyto == 'twoquery'",
+                box(width = NULL, status = "primary",
+                    fluidRow(
+                      # column(3,
+                      #   selectInput("filtmod_query_cyto2", "Filter Model_type", choices = "", multiple = TRUE),
+                      #   radioButtons("andor_query_cyto2", label = NULL, choices = c("AND", "OR"), selected = "OR",inline = TRUE)
+                      # ),
+                      column(3,
+                             selectInput("selcol_query_cyto2", "Column", choices = "")
+                      ),
+                      column(2,
+                             selectInput("selop_query_cyto2", "Operator", choices = c("max", "min", "greater than", "greater than or equal", "equal", "less than or equal", "less than"))
+                      ),
+                      conditionalPanel(
+                        condition = "input.selop_query_cyto2 != 'max' && input.selop_query_cyto2 != 'min'",
+                        column(2, numericInput("thresh_query_cyto2", "Threshold", value = 1))
+                      )
                     )
-                  )
-                  
+                    
+                )
               )
+              
             ),
+
+            
+            #button launch query
+            box(width = 3, status = "primary",
+                div(style = "text-align: center;", br(), br(), 
+                    conditionalPanel("output.checkadd2query_cyto == 'twoquery'", br(), br(),br()),
+                    actionButton("go_querycyto", "Search", icon("magnifying-glass"), style = "font-size:25px;"), 
+                    br(), br(),
+                    conditionalPanel("output.checkadd2query_cyto == 'twoquery'", br(), br(),br())
+                )),
+
             
             
             fluidRow(column(12,
@@ -528,7 +546,7 @@ app_ui <- function(request) {
             
             ###first query
             column(
-              8,
+              9,
               box(
               width = NULL, status = "primary",
               fluidRow(
@@ -547,7 +565,7 @@ app_ui <- function(request) {
                 #   condition = "input.selop_query_cyto != 'max' && input.selop_query_cyto != 'min'",
                   column(3, sliderInput("thresh_query_d1", "Times", value = 2.5,min = 1, max = 3, step = 0.1)),
                 #),
-                column(2, br(),shinyBS::bsButton("add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus")))
+                column(2, style = "text-align: center;", br(),shinyBS::bsButton("add2query_d1", label = HTML("&nbsp;Add"), style="success", icon("plus")))
               )
             ),
             
@@ -570,8 +588,14 @@ app_ui <- function(request) {
             )
             ),
             
-            box(width = 4, status = "primary",
-                column(12, style = "text-align: center;", br(), br(), actionButton("go_queryd1", "Search", icon("magnifying-glass"), style = "font-size:25px;"), br())),
+            #button launch query
+            box(width = 3, status = "primary",
+                div(style = "text-align: center;", br(), br(), 
+                  conditionalPanel("output.checkadd2query_D1 == 'twoquery'", br(), br(),br()),
+                  actionButton("go_queryd1", "Search", icon("magnifying-glass"), style = "font-size:25px;"), 
+                  br(), br(),
+                  conditionalPanel("output.checkadd2query_D1 == 'twoquery'", br(), br(),br())
+                  )),
             
             
 
@@ -890,101 +914,145 @@ app_ui <- function(request) {
           #### QUERY reporter ####
           tabItem(
             tabName = "repoquerytab",
-            ###first query
-            box(
-              width = 12, status = "primary",
-              fluidRow(
-                column(3, selectInput("query_reporter", "Query type", choices = "")),
-                column(
-                  3,
-                  conditionalPanel(
-                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
-                    sliderInput("query3_repo_thresh", "Times greater than CTRL", min = 2, max = 3, value = 2.5, step = 0.1)
-                  ),
-
-                  conditionalPanel(
-                    condition = "input.query_reporter == 'GFP fractions greater than CTRL+'",
-                    sliderInput("query4_repo_thresh", "Threshold greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
-                  )
-                ),
-                column(
-                  3,
-                  conditionalPanel(
-                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
-                    selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T)
-                  )
-                ),
-                column(
-                  1, br(),
-                  conditionalPanel(
-                    condition = "input.sel_reporter == 'SEAP'",
-                    shinyBS::bsButton("add2query_seap", label = HTML("&nbsp;Add"), style="success", icon("plus"))
-                  ),
-                  conditionalPanel(
-                    condition = "input.sel_reporter == 'TREM2'",
-                    shinyBS::bsButton("add2query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
-                  )
-                ),
-                
-                column(2, style = "text-align: center;", br(), actionButton("go_queryrepo", "Search", icon("magnifying-glass"), style = "font-size:25px;"))
-              )
-            ),
-            
-            #### Second query seap
-            conditionalPanel(
-              condition = "output.checkadd2query_seap == 'twoquery' && input.sel_reporter == 'SEAP'",
+            column(
+              9,
+              
+              ### first query
               box(
-                width = 12, status = "primary",
-                conditionalPanel(
-                  condition = "input.query_reporter == 'Concentration greater than CTRL'",
-                  fluidRow(
-                    column(3,selectInput("query_reporter2", "Second query type", choices = "")),
-                    column(
-                      2, offset = 1, 
-                      conditionalPanel(
-                        condition = "output.check_second_seap_query == true",
-                        br(),
-                        actionButton("seap_query_plot", "Informative plots", icon("eye"))
-                      )
+                width = NULL, status = "primary",
+                fluidRow(
+                  column(3, selectInput("query_reporter", "Query type", choices = "")),
+                  column(
+                    4,
+                    conditionalPanel(
+                      condition = "input.query_reporter == 'Concentration greater than CTRL'",
+                      sliderInput("query3_repo_thresh", "Threshold fraction greater than CTRL (%)", min = 100, max = 300, value = 200, step = 10)
+                    ),
+                    
+                    conditionalPanel(
+                      condition = "input.query_reporter == 'GFP fractions greater than CTRL+'",
+                      sliderInput("query4_repo_thresh", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 100, value = 50, step = 5)
                     )
                   ),
-                  #modal
-                  shinyBS::bsModal(
-                    "modal_seap_query_plot", title = "Informative plots ",trigger = "seap_query_plot", size = "large",
-                    fluidRow(
-                      column(3, radioButtons("type_plot_seap_query", "Plot type:", choices = c("Model types per fraction", 
-                                                                                              "Fractions frequence"))),
-                      column(9, conditionalPanel(
-                        condition = "input.type_plot_seap_query == 'Model types per fraction'",
-                        selectInput("prod_dt_seap_query", "Select one or more Products", choices = "", multiple = T)
-                        ))
+                  column(
+                    3,
+                    conditionalPanel(
+                      condition = "input.query_reporter == 'Concentration greater than CTRL'",
+                      selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T)
+                    )
+                  ),
+                  column(
+                    2, style = "text-align:center;",br(),
+                    conditionalPanel(
+                      condition = "input.sel_reporter == 'SEAP'",
+                      shinyBS::bsButton("add2query_seap", label = HTML("&nbsp;Add"), style="success", icon("plus"))
                     ),
+                    conditionalPanel(
+                      condition = "input.sel_reporter == 'TREM2'",
+                      shinyBS::bsButton("add2query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
+                    )
+                  )
+                )
+              ),
+              
+              
+              #### second queries
+              #### Second query seap
+              conditionalPanel(
+                condition = "output.checkadd2query_seap == 'twoquery'",
+                box(
+                  width = NULL, status = "primary",
+                  conditionalPanel(
+                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
                     fluidRow(
-                      conditionalPanel(
-                        condition = "input.type_plot_seap_query == 'Model types per fraction'",
-                        column(12,shinycssloaders::withSpinner(DTOutput("plot_dt_seap_query")))
+                      column(3,selectInput("query_reporter2", "Second query type", choices = "")),
+                      column(
+                        2, offset = 1, 
+                        conditionalPanel(
+                          condition = "output.check_second_seap_query == true",
+                          br(),
+                          actionButton("seap_query_plot", "Informative plots", icon("eye"))
+                        )
+                      )
+                    ),
+                    #modal
+                    shinyBS::bsModal(
+                      "modal_seap_query_plot", title = "Informative plots ",trigger = "seap_query_plot", size = "large",
+                      fluidRow(
+                        column(3, radioButtons("type_plot_seap_query", "Plot type:", choices = c("Model types per fraction", 
+                                                                                                 "Fractions frequence"))),
+                        column(9, conditionalPanel(
+                          condition = "input.type_plot_seap_query == 'Model types per fraction'",
+                          selectInput("prod_dt_seap_query", "Select one or more Products", choices = "", multiple = T)
+                        ))
                       ),
+                      fluidRow(
+                        conditionalPanel(
+                          condition = "input.type_plot_seap_query == 'Model types per fraction'",
+                          column(12,shinycssloaders::withSpinner(DTOutput("plot_dt_seap_query")))
+                        ),
+                        conditionalPanel(
+                          condition = "input.type_plot_seap_query == 'Fractions frequence'",
+                          column(12,shinycssloaders::withSpinner(plotlyOutput("plotly_seap_query")))
+                        )
+                      )
+                    ) #end of modal
+                    
+                  )
+                )
+              ),
+              
+              #### Second query trem2
+              conditionalPanel(
+                condition = "output.checkadd2query_trem == 'twoquery'",
+                box(width = NULL, status = "primary",
+                  fluidRow(
+                    column(
+                      3,
+                      selectInput("query_reporter_trem2", "Second query type", 
+                                  choices = c("Enriched fractions", "Vitality fractions greater than CTRL+"))),
+                    column(
+                      4,
                       conditionalPanel(
-                        condition = "input.type_plot_seap_query == 'Fractions frequence'",
-                        column(12,shinycssloaders::withSpinner(plotlyOutput("plotly_seap_query")))
+                        condition = "input.query_reporter_trem2 == 'Vitality fractions greater than CTRL+'",
+                        sliderInput("query_vita_repo_thresh", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 200, value = 100, step = 10)
+                      )
+                    ),
+                    column(
+                      2, offset = 3,style = "text-align:center;",br(),
+                      conditionalPanel(
+                        "input.query_reporter_trem2 == 'Vitality fractions greater than CTRL+'",
+                        shinyBS::bsButton("add3query_trem", label = HTML("&nbsp;Add"), style="success", icon("plus"))
                       )
                     )
-                  ) #end of modal
-                  
+                  )
+                )
+              ), #end of 2 query trem
+              
+              
+              #### Third query trem2
+              conditionalPanel(
+                condition = "output.checkadd3query_trem == 'three'",
+                box(width = NULL, status = "primary",
+                    fluidRow(column(3, selectInput("query_reporter_trem3", "Third query type", 
+                                         choices = c("Enriched fractions")))
+                    )
                 )
               )
-            ),
+
+              
+            ), #end of column 9
             
-            #### Second query trem2
-            conditionalPanel(
-              condition = "output.checkadd2query_trem == 'twoquery' && input.sel_reporter == 'TREM2'",
-              box(
-                width = 12, status = "primary",
-                column(3,selectInput("query_reporter_trem2", "Second query type", choices = c("Enriched fractions" = "6")))
-              )
-            ),
+            #button launch query
+            box(width = 3, status = "primary",
+                div(style = "text-align: center;", br(), br(), 
+                    conditionalPanel("output.checkadd2query_trem == 'twoquery' || output.checkadd2query_seap == 'twoquery'", br(), br(),br()),
+                    actionButton("go_queryrepo", "Search", icon("magnifying-glass"), style = "font-size:25px;"), 
+                    br(), br(),
+                    conditionalPanel("output.checkadd2query_trem == 'twoquery' || output.checkadd2query_seap == 'twoquery'", br(), br(),br())
+                )),
             
-            
+         
             box(width = 12, status = "primary", shinycssloaders::withSpinner(DTOutput("query_repo_dt")))
             
           ),
@@ -1100,12 +1168,146 @@ app_ui <- function(request) {
                                box(width = 12, title = "Table", solidHeader = T, status = "primary", tableOutput("dt_infoprod")),
                                ),
                              fluidRow(
-                               column(7, box(width = NULL, title = "Map", solidHeader = T, status = "primary", uiOutput("ui_map"))),
-                               column(5, box(width = NULL, title = "Photo", solidHeader = T, status = "primary", uiOutput("phorganism", style = "text-align:center;")))
+                               column(7, box(width = NULL, title = "Map", solidHeader = T, status = "primary", shinycssloaders::withSpinner(uiOutput("ui_map")))),
+                               column(5, box(width = NULL, title = "Photo", solidHeader = T, status = "primary", shinycssloaders::withSpinner(uiOutput("phorganism", style = "text-align:center;"))))
                              )
             )
 
-          )
+          ),
+          
+          
+          #### QUERY INTEGRAZIONE ####
+          tabItem(
+            tabName = "intquerytab",
+            
+            ###first query
+            column(
+              9,
+              box(
+                width = NULL, status = "primary",
+                fluidRow(
+                  #select the database
+                  column(2, awesomeRadio("seldata_query1_int", "Database", choices = c("TREM2", "SEAP"))),
+                  
+                  #### TREM2 and SEAP FIRST ####
+                  conditionalPanel(
+                    "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'SEAP'",
+                    column(
+                      3, 
+                      fluidRow(
+                        column(8,selectInput("queryint_active_var1", "Active fractions in:", choices = "")),
+                        conditionalPanel(
+                          "input.seldata_query1_int == 'TREM2'",
+                          column(4, br(),shinyBS::bsButton("add_queryint_active_var", label = "", style="success", icon("plus")))
+                        )
+                      ),
+                      
+                      conditionalPanel(
+                        "output.checkadd_queryint_active_var == 'twovar'",
+                        fluidRow(column(8,br(),selectInput("queryint_active_var2", "Active fractions in:", choices = "")))
+                      )
+                  ),
+                  
+                  column(4,
+                    sliderInput("thresh_active_integ1", "", min = 10, max = 100, value = 50),
+                    conditionalPanel(
+                      "output.checkadd_queryint_active_var == 'twovar'",
+                      sliderInput("thresh_active_integ2", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 200, value = 100, step =10)
+                    )
+                  ),
+                  
+                  #modeltype for seap
+                  column(3, conditionalPanel("input.seldata_query1_int == 'SEAP'",
+                      selectInput("queryinteg_seap_modtype", "Select a Model type", choices = "", multiple  = T)))
+                  
+                  
+                  ) #end of trem2 and seap
+                  
+                )
+              ), #end of box first query
+              
+              
+              ####  second query ####
+
+              box(width = NULL, status = "primary",
+                  fluidRow(
+                    column(2, awesomeRadio("seldata_query2_int", "Database", choices = c("Cytotoxicity", "TREM2", "SEAP"))),
+                    
+                    #### cytotoxicity ####
+                    conditionalPanel(
+                      "input.seldata_query2_int == 'Cytotoxicity'",
+                      fluidRow(
+                        column(3, selectInput("filtmod_query_cyto_integ", "Filter Model_type", choices = "", multiple = TRUE)),
+                        column(2, selectInput("selcol_query_cyto_integ", "Column", choices = "")),
+                        column(2, selectInput("selop_query_cyto_integ", "Operator", 
+                                              choices = c("max", "min", "greater than", 
+                                                          "greater than or equal", "equal", "less than or equal", "less than"))
+                        ),
+                        column(2,
+                          conditionalPanel(
+                            condition = "input.selop_query_cyto_integ != 'max' && input.selop_query_cyto != 'min'",
+                            numericInput("thresh_query_cyto_integ", "Threshold", value = 50))
+                        )
+                      )
+                    ),
+                    
+                    #### TREM2 and SEAP FIRST ####
+                    conditionalPanel(
+                      "input.seldata_query2_int == 'TREM2' || input.seldata_query2_int == 'SEAP'",
+                      column(
+                        3, 
+                        fluidRow(
+                          column(8,selectInput("queryint2_active_var1", "Active fractions in:", choices = "")),
+                          conditionalPanel(
+                            "input.seldata_query2_int == 'TREM2'",
+                            column(4, br(),shinyBS::bsButton("add_queryint2_active_var", label = "", style="success", icon("plus")))
+                          )
+                        ),
+                        
+                        conditionalPanel(
+                          "output.checkadd_queryint2_active_var == 'twovar'",
+                          fluidRow(column(8,br(),selectInput("queryint2_active_var2", "Active fractions in:", choices = "")))
+                        )
+                      ),
+                      
+                      column(4,
+                             sliderInput("thresh_active2_integ1", "", min = 10, max = 100, value = 50),
+                             conditionalPanel(
+                               "output.checkadd_queryint2_active_var == 'twovar'",
+                               sliderInput("thresh_active2_integ2", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 200, value = 100, step =10)
+                             )
+                      ),
+                      
+                      #modeltype for seap
+                      column(3, conditionalPanel("input.seldata_query2_int == 'SEAP'",
+                                                 selectInput("queryinteg2_seap_modtype", "Select a Model type", choices = "", multiple  = T)))
+                      
+                    ) #end of trem2 and seap
+                    
+                    
+                  )
+              )
+              
+            ), #end of column 9
+            
+            #button launch query
+            box(width = 3, status = "primary",
+                div(style = "text-align: center;", br(), br(), br(), br(),br(),
+                    
+                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br(), br(),br()),
+                    actionButton("go_queryint", "Search", icon("magnifying-glass"), style = "font-size:25px;"), 
+                    br(), br(),br(), br(),br(), 
+                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br(), br(),br()),
+                )),
+            
+            
+
+            
+            #datatable
+            box(width = 12, status = "primary", shinycssloaders::withSpinner(DTOutput("query_integ_dt")))
+            
+            
+            ) #end of tabitem query integrazione
           
           
         ) #end of tabItemS

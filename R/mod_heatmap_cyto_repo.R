@@ -136,7 +136,7 @@ mod_heatmap_cyto_repo_server <- function(id, data, data_type){
         updateSelectInput(session, "typeeval_heat", choices = c("Concentration"))
       }
       if(data_type() == "TREM2"){
-        updateSelectInput(session, "typeeval_heat", choices = c("Cytotoxicity", "Vitality", "GFP"))
+        updateSelectInput(session, "typeeval_heat", choices = c("Vitality", "GFP"))
       }
     })
     

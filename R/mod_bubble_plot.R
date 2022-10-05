@@ -101,9 +101,7 @@ mod_bubble_plot_server <- function(id, data, type_data){
         updateSelectInput(session, "typeeval_bubb", choices = c("Concentration")) #= "Concentration.average"
       }
       if(type_data() == "TREM2"){
-        updateSelectInput(session, "typeeval_bubb", choices = c("Cytotoxicity", #= "Cytotoxicity.average"
-                                                                "Vitality",
-                                                                "GFP"))
+        updateSelectInput(session, "typeeval_bubb", choices = c("Vitality", "GFP"))
       }
     })
     
