@@ -6,7 +6,8 @@
 #' @param model_type Character. A model type that will be used to filter the data.
 #' @param variable Character. In which variable search for active fractions. e.g. Concentration.average or GFP.average...
 #' @param type_ctrl Character. The control to use for the comparison. One of "CTRL" or "CTRL+".
-#' @param thresh_ctrl Numeric. Percentage for the threshold of the CTRL/CTRL+. e.g. 50 is 50% of the CTRL, 200 is 2 times the CTRL.
+#' @param thresh_ctrl Numeric. Percentage for the threshold of the CTRL/CTRL+. e.g. 50 is half of the CTRL, 200 is 2 times the CTRL.
+#' @param final_msg Logical. If FALSE the final message of completed is not sent.
 #' 
 #' @importFrom dplyr filter if_any
 #' @importFrom shiny isRunning showNotification

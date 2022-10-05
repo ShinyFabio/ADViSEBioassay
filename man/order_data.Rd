@@ -10,6 +10,8 @@ order_data(data, as_factor = FALSE, var_to_order = "Model_type")
 \item{data}{your data}
 
 \item{as_factor}{Set to FALSE if you don't need factors (for complexheatmap)}
+
+\item{var_to_order}{Character. Variable to order. By default is "Model_type"}
 }
 \description{
 \code{order_data} arrange your data

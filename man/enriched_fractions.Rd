@@ -9,11 +9,9 @@ enriched_fractions(prod_trem, data_reporter, repo_type)
 \arguments{
 \item{prod_trem}{Dataframe. The output from 4 or 5 query of TREM2.}
 
+\item{data_reporter}{The reporter dataframe (data_reporter())}
+
 \item{repo_type}{Character. The type of the reporter data ("SEAP" or "TREM2".}
-
-\item{data_repo}{The reporter dataframe (data_reporter())}
-
-\item{model_type}{Character. A model type that will be used to filter the SEAP data.}
 }
 \description{
 \code{enriched_fractions} Function for a query in Reporter.

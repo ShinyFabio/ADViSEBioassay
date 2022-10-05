@@ -22,7 +22,9 @@ active_fractions(
 
 \item{type_ctrl}{Character. The control to use for the comparison. One of "CTRL" or "CTRL+".}
 
-\item{thresh_ctrl}{Numeric. Percentage for the threshold of the CTRL/CTRL+. e.g. 50 is 50% of the CTRL, 200 is 2 times the CTRL.}
+\item{thresh_ctrl}{Numeric. Percentage for the threshold of the CTRL/CTRL+. e.g. 50 is half of the CTRL, 200 is 2 times the CTRL.}
+
+\item{final_msg}{Logical. If FALSE the final message of completed is not sent.}
 }
 \description{
 \code{active_fractions} Search for active fractions.

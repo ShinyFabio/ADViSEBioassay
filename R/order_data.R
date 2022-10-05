@@ -4,6 +4,7 @@
 #'
 #' @param data your data
 #' @param as_factor Set to FALSE if you don't need factors (for complexheatmap)
+#' @param var_to_order Character. Variable to order. By default is "Model_type"
 #'
 #' @importFrom dplyr arrange mutate filter
 #'

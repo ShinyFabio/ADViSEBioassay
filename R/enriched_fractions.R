@@ -2,9 +2,8 @@
 #'
 #' @description \code{enriched_fractions} Function for a query in Reporter.
 #'
-#' @param data_repo The reporter dataframe (data_reporter())
+#' @param data_reporter The reporter dataframe (data_reporter())
 #' @param repo_type Character. The type of the reporter data ("SEAP" or "TREM2".
-#' @param model_type Character. A model type that will be used to filter the SEAP data.
 #' @param prod_trem Dataframe. The output from 4 or 5 query of TREM2.
 #' 
 #' @importFrom dplyr mutate filter if_any

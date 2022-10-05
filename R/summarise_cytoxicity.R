@@ -4,7 +4,8 @@
 #'
 #' @param X data to summarise.
 #' @param group Column used for the grouping. The columns in group will not be removed.
-#' @param method Charcter. Can be "cyto", "d1","trem" or "seap".
+#' @param method Character. Can be "cyto", "d1","trem" or "seap".
+#' @param markers_name Vector containing the markers
 #' 
 #'
 #' @importFrom dplyr group_by summarise ungroup across

@@ -42,7 +42,8 @@ Imports:
     shinycssloaders,
     tmap,
     parallel,
-    Hmisc
+    Hmisc,
+    sf
 Remotes: 
     github::jokergoo/ComplexHeatmap,
     github::jokergoo/InteractiveComplexHeatmap
