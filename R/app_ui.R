@@ -1192,6 +1192,11 @@ app_ui <- function(request) {
                   #### TREM2 and SEAP FIRST ####
                   conditionalPanel(
                     "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'SEAP'",
+                    
+                    #modeltype for seap
+                    column(3, conditionalPanel("input.seldata_query1_int == 'SEAP'",
+                                               selectInput("queryinteg_seap_modtype", "Filter Model type", choices = "", multiple  = T))),
+                    
                     column(
                       3, 
                       fluidRow(
@@ -1214,13 +1219,9 @@ app_ui <- function(request) {
                       "output.checkadd_queryint_active_var == 'twovar'",
                       sliderInput("thresh_active_integ2", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 200, value = 100, step =10)
                     )
-                  ),
+                  )
                   
-                  #modeltype for seap
-                  column(3, conditionalPanel("input.seldata_query1_int == 'SEAP'",
-                      selectInput("queryinteg_seap_modtype", "Select a Model type", choices = "", multiple  = T)))
-                  
-                  
+
                   ) #end of trem2 and seap
                   
                 )
@@ -1237,7 +1238,7 @@ app_ui <- function(request) {
                     conditionalPanel(
                       "input.seldata_query2_int == 'Cytotoxicity'",
                       fluidRow(
-                        column(3, selectInput("filtmod_query_cyto_integ", "Filter Model_type", choices = "", multiple = TRUE)),
+                        column(3, selectInput("filtmod_query_cyto_integ", "Filter Model type", choices = "", multiple = TRUE)),
                         column(2, selectInput("selcol_query_cyto_integ", "Column", choices = "")),
                         column(2, selectInput("selop_query_cyto_integ", "Operator", 
                                               choices = c("max", "min", "greater than", 
@@ -1292,21 +1293,44 @@ app_ui <- function(request) {
             
             #button launch query
             box(width = 3, status = "primary",
-                div(style = "text-align: center;", br(), br(), br(), br(),br(),
+                div(style = "text-align: center;", br(), br(),
                     
-                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br(), br(),br()),
+                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br()),
                     actionButton("go_queryint", "Search", icon("magnifying-glass"), style = "font-size:25px;"), 
-                    br(), br(),br(), br(),br(), 
-                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br(), br(),br()),
+                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br(), br()),
+                    br(), br(), hr(),
+                    conditionalPanel("output.checkadd_queryint2_active_var == 'twovar' || output.checkadd_queryint_active_var == 'twovar'", br()),
+                    awesomeRadio("query_intersection",
+                      label = "Query results", choices = c("Intersection", "Union", "First", "Second"),
+                      selected = "Intersection", inline = TRUE), 
+                    br()
                 )),
             
             
 
+            column(12,
+              tabsetPanel(
+                tabPanel("Datatable",icon = icon("table"), shinycssloaders::withSpinner(DTOutput("query_integ_dt"))),
+                tabPanel(
+                  "Plots", icon = icon("chart-bar"),
+                  sidebarLayout(
+                    sidebarPanel(
+                      width = 3,
+                      selectInput("bubb_integ_X", "X axis variable", choices = ""),
+                      selectInput("bubb_integ_Y", "Y axis variable", choices = ""),
+                      selectInput("bubb_integ_fill", "Fill variable", choices = ""),
+                      selectInput("bubb_integ_size", "Size variable", choices = "")
+                    ),
+                    mainPanel(
+                      width = 9,
+                      box(width = 12, status = "primary", shinycssloaders::withSpinner(plotlyOutput("bubble_query_integ")))
+                    )
+                  )
+                )
+              )
+            )
             
-            #datatable
-            box(width = 12, status = "primary", shinycssloaders::withSpinner(DTOutput("query_integ_dt")))
-            
-            
+
             ) #end of tabitem query integrazione
           
           

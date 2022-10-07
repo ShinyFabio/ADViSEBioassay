@@ -3018,7 +3018,6 @@ app_server <- function( input, output, session ) {
 ###info
 
   observeEvent(input[["infoprod_select_button"]], {
-    print(input$infoprod_select_button)
     toggleModal(session, "modal_infoprod", toggle = "open")
   })
 
@@ -3035,10 +3034,10 @@ app_server <- function( input, output, session ) {
     req(input$infoprod_select_button)
     
     #for package
-    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
     
     #for dev
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
+    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
     
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
     photo_path = paste0("www/foto_organismi/", prod_fam, ".jpg")
@@ -3269,19 +3268,25 @@ app_server <- function( input, output, session ) {
   
   
   ##### final query #####
-  query_integr = eventReactive(input$go_queryint,{
+  
+  
+  ###first query integration
+  
+  first_query_integ = eventReactive(input$go_queryint,{
+    req(loaded_database_seap())
+    req(loaded_database_trem2())
     
-    #### first query______________________
     if(input$seldata_query1_int == "SEAP"){
       validate(need(input$queryinteg_seap_modtype, "Please select at least one Model_type"))
       req(loaded_database_seap())
       data = loaded_database_seap()$mydataset
       
       firstquery = active_fractions(data_reporter = data,
-                       model_type = input$queryinteg_seap_modtype,
-                       variable = input$queryint_active_var1,
-                       type_ctrl = "CTRL",
-                       thresh_ctrl = input$thresh_active_integ1)
+                                    model_type = input$queryinteg_seap_modtype,
+                                    variable = input$queryint_active_var1,
+                                    type_ctrl = "CTRL",
+                                    thresh_ctrl = input$thresh_active_integ1, 
+                                    final_msg = FALSE)
       
       
     }else if(input$seldata_query1_int == "TREM2"){
@@ -3292,7 +3297,8 @@ app_server <- function( input, output, session ) {
                                        model_type = unique(data$Model_type),
                                        variable = input$queryint_active_var1,
                                        type_ctrl = "CTRL+",
-                                       thresh_ctrl = input$thresh_active_integ1)
+                                       thresh_ctrl = input$thresh_active_integ1,
+                                       final_msg = FALSE)
       #2 variables
       if(input$add_queryint_active_var %%2 != 0){
         
@@ -3300,7 +3306,8 @@ app_server <- function( input, output, session ) {
                                          model_type = unique(data$Model_type),
                                          variable = input$queryint_active_var2,
                                          type_ctrl = "CTRL+",
-                                         thresh_ctrl = input$thresh_active_integ2)
+                                         thresh_ctrl = input$thresh_active_integ2,
+                                         final_msg = FALSE)
         firstquery = intersect(query_active1, query_active2)
         
       }else{
@@ -3309,22 +3316,27 @@ app_server <- function( input, output, session ) {
       
     }
     
+    suffx1 = paste0(".",input$seldata_query1_int)
     
-    #### second query______________________
+    dplyr::rename_with(firstquery, ~paste0(.x, suffx1), .cols = -c(Product_Family, Product, Dose, Purification))
     
-    #take only the products from the first query
-    #products_first = paste(firstquery$Product, firstquery$Dose, firstquery$Purification, sep = ".")
-    
-    firstquery = firstquery %>% dplyr::mutate(sample = paste(Product_Family,Product, Dose, Purification, sep = "."))%>%
-      dplyr::select(-c(Product_Family, Product, Dose, Purification))
-    
+  })
+  
+  
+  
+  
+  ###### second query integration
+  
+  second_query_integ = eventReactive(input$go_queryint,{
+    req(dataquery_cyto())
+    req(loaded_database_seap())
+    req(loaded_database_trem2())
     
     ### CYTO
     if(input$seldata_query2_int == "Cytotoxicity"){
       req(dataquery_cyto())
-      data = dataquery_cyto() %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
-        dplyr::filter(sample %in% firstquery$sample)
-      
+      data = dataquery_cyto()
+
       validate(need(input$filtmod_query_cyto_integ, "Select something in the Model_type filtering."))
       # if("All" %in% input$filtmod_query_cyto_integ){
       #   leng_modtype = length(unique(dataquery_cyto()$Model_type))
@@ -3353,11 +3365,7 @@ app_server <- function( input, output, session ) {
                             type_output = "raw")
       }) %>% {Reduce(rbind, .)}
       
-      if(!is.null(secondquery)){
-        showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
-      }
-
-
+ 
       # if(input$andor_query_cyto == "AND"){
       #   joined = temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
       #     dplyr::filter(n == leng_modtype) %>% dplyr::pull(Product_Family)
@@ -3371,36 +3379,27 @@ app_server <- function( input, output, session ) {
       
       validate(need(input$queryinteg2_seap_modtype, "Please select at least one Model_type"))
       req(loaded_database_seap())
-      data = loaded_database_seap()$mydataset %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
-        dplyr::filter(sample %in% firstquery$sample)
-      
-      #riattacco i CTRL+ che erano stati eliminati
-      cntrs = loaded_database_seap()$mydataset %>% dplyr::filter(Experiment_id %in% data$Experiment_id & Product_Family == "CTRL") %>% 
-        dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
-      data = rbind(data,cntrs)
-      
+      data = loaded_database_seap()$mydataset
+
+       
       secondquery = active_fractions(data_reporter = data,
                                      model_type = input$queryinteg2_seap_modtype,
                                      variable = input$queryint2_active_var1,
                                      type_ctrl = "CTRL",
-                                     thresh_ctrl = input$thresh_active2_integ1)
+                                     thresh_ctrl = input$thresh_active2_integ1,
+                                     final_msg = FALSE)
       
     #### TREM2
     }else if(input$seldata_query2_int == "TREM2"){
       req(loaded_database_trem2())
-      data = loaded_database_trem2()$mydataset %>% dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>%
-        dplyr::filter(sample %in% firstquery$sample)
-      
-      #riattacco i CTRL+ che erano stati eliminati
-      cntrs = loaded_database_trem2()$mydataset %>% dplyr::filter(Experiment_id %in% data$Experiment_id & Product_Family == "CTRL+") %>% 
-        dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
-      data = rbind(data,cntrs)
-      
+      data = loaded_database_trem2()$mydataset
+
       query_active21 = active_fractions(data_reporter = data,
                                         model_type = unique(data$Model_type),
                                         variable = input$queryint2_active_var1,
                                         type_ctrl = "CTRL+",
-                                        thresh_ctrl = input$thresh_active2_integ1)
+                                        thresh_ctrl = input$thresh_active2_integ1,
+                                        final_msg = FALSE)
       #2 variables
       if(input$add_queryint2_active_var %%2 != 0){
         
@@ -3420,17 +3419,71 @@ app_server <- function( input, output, session ) {
     }
     
     
-    
+    #add suffix
     suffx2 = paste0(".",ifelse(input$seldata_query2_int == "Cytotoxicity", "CYTO", input$seldata_query2_int))
-    suffx1 = paste0(".",input$seldata_query1_int)
+    dplyr::rename_with(secondquery, ~paste0(.x, suffx2), .cols = -c(Product, Product_Family, Dose, Purification))
+  })
+  
+  
+  
+  query_integr = reactive({
+    req(first_query_integ())
+    req(second_query_integ())
     
-    mydataset_join = dplyr::inner_join(secondquery, firstquery, by = "sample", suffix = c(suffx2, suffx1)) %>% dplyr::select(-sample)
+    #join data and ordering
+    if(input$query_intersection == "Intersection"){
+      mydataset_join = dplyr::inner_join(first_query_integ(), second_query_integ(), by = c("Product", "Product_Family", "Dose", "Purification"))
+    }else if(input$query_intersection == "Union"){
+      mydataset_join = dplyr::full_join(first_query_integ(), second_query_integ(), by = c("Product", "Product_Family", "Dose", "Purification"))
+    }else if(input$query_intersection == "First"){
+      mydataset_join = dplyr::left_join(first_query_integ(), second_query_integ(), by = c("Product", "Product_Family", "Dose", "Purification"))
+    }else{
+      mydataset_join = dplyr::right_join(first_query_integ(), second_query_integ(),by = c("Product", "Product_Family", "Dose", "Purification"))
+    }
+    
+    showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(mydataset_join$Product)), " different fractions.")), type = "message")
+    
     col_order = c("Product_Family", "Product", "Dose", "Purification")
     col_order = c(col_order,colnames(dplyr::select(mydataset_join,-col_order)))
     mydataset_join[,col_order]
-    
-    
+
   })
+  
+  
+  
+  
+  ### plot query integrazione
+  
+  observeEvent(query_integr(),{
+    
+    updateSelectInput(session, "bubb_integ_X", choices = colnames(query_integr()))
+    updateSelectInput(session, "bubb_integ_Y", choices = colnames(query_integr()))
+    
+    updateSelectInput(session, "bubb_integ_fill", choices = c("None",colnames(query_integr())))
+    
+    updateSelectInput(session, "bubb_integ_size", choices = c("None",colnames(dplyr::select(query_integr(), where(is.double)))))
+  })
+  
+  #bubbleplot
+  output$bubble_query_integ = renderPlotly({
+    req(query_integr())
+    
+    temp = ggplot(query_integr(), aes_string(x= input$bubb_integ_X, y = input$bubb_integ_Y))
+    
+    if(input$bubb_integ_fill == "None" && input$bubb_integ_size == "None"){
+      temp = temp + geom_point()
+    }else if(input$bubb_integ_fill != "None" && input$bubb_integ_size == "None"){
+      temp = temp + geom_point(aes_string(color = input$bubb_integ_fill))
+    }else if(input$bubb_integ_fill == "None" && input$bubb_integ_size != "None"){
+      temp = temp + geom_point(aes_string(size = input$bubb_integ_size))
+    }else{
+      temp = temp + geom_point(aes_string(color = input$bubb_integ_fill, size = input$bubb_integ_size))
+    }
+    
+    plotly::ggplotly(temp)
+  })
+  
+  
   
   
   output$query_integ_dt = renderDT({
