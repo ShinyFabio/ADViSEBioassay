@@ -6,7 +6,7 @@ Experiment_cal <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/
 Target_cal <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/SEAP/CALIBRATION SEAP/target file database CALIBRATION SEAP.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
 
 
-Target_cal = check_targetfile(target = Target_cal, explist = Experiment_cal)
+Target_cal = check_targetfile(target = Target_cal, explist = Experiment_cal, check_ctrl = FALSE)
 
 
 file_list_cal <- unlist(strsplit(Experiment_cal$File, split = ","))

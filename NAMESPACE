@@ -2,6 +2,7 @@
 
 export(run_app)
 export(theme_ADViSE)
+import(ComplexHeatmap)
 import(DataEditR)
 import(dplyr)
 import(ggplot2)

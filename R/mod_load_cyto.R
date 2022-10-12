@@ -170,7 +170,7 @@ mod_load_cyto_server <- function(id, data_type){
       
       check_targetfile(target = Target_file, 
                        explist = exp_list_calib(), 
-                       check_back = ifelse(data_type() == "D1" || data_type() == "TREM2", FALSE, TRUE))
+                       check_back = ifelse(data_type() == "D1" || data_type() == "TREM2", FALSE, TRUE), check_ctrl = FALSE)
       
     })
 

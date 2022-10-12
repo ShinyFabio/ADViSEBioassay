@@ -5,6 +5,7 @@
 #' @param target The target file (dataframe).
 #' @param explist The experiment list file.
 #' @param check_back Boolean. Set to TRUE if you want to check the existence of the BACKGROUND. Default to TRUE (cyto and seap). Set to FALSE for D1 and TREM2.
+#' @param check_ctrl Boolean. Set to TRUE if you want to check the existence of the CTRLs. Default to TRUE. Set to FALSE only for target calibration file (SEAP).
 #' 
 #'
 #' @importFrom dplyr filter
@@ -13,7 +14,7 @@
 #'
 
 
-check_targetfile = function(target, explist,check_back = TRUE){
+check_targetfile = function(target, explist,check_back = TRUE, check_ctrl = TRUE){
   
   
   #filter target based on exp_list
@@ -47,6 +48,7 @@ check_targetfile = function(target, explist,check_back = TRUE){
       }
       to_rem = c(to_rem, i)
     }
+    
     #check well replicates
     if(length(unique(expid$Well)) != length(expid$Well)){
       dup_wells = expid[duplicated(expid$Well),]$Well
@@ -66,7 +68,7 @@ check_targetfile = function(target, explist,check_back = TRUE){
         print(paste0("For ", i, " there is only one BACKGROUND instead of two. Check the target file."))
         if(shiny::isRunning()){
           showNotification(duration = 8, tagList(icon("exclamation-circle"), 
-                                                 HTML("For ", i, " there are some duplicated wells (",dup_wells,"). This experiment will be removed. Check the target file.")), type = "warning")
+                                                 HTML("For ", i, " there is only one BACKGROUND instead of two. Check the target file.")), type = "warning")
         }
       }
       if(n_back == 0){
@@ -79,6 +81,29 @@ check_targetfile = function(target, explist,check_back = TRUE){
       }
     }
 
+    
+    
+    
+    #check presence of CTRL
+    if(check_ctrl == TRUE){
+      n_ctrl = nrow(dplyr::filter(expid, Product == "CTRL"))
+      if(n_ctrl == 1){
+        print(paste0("For ", i, " there is only one CTRL instead of two. Check the target file."))
+        if(shiny::isRunning()){
+          showNotification(duration = 8, tagList(icon("exclamation-circle"), 
+                                                 HTML("For ", i, " there is only one CTRL instead of two. Check the target file.")), type = "warning")
+        }
+      }
+      if(n_ctrl == 0){
+        print(paste0("For ", i, " there isn't any CTRL. This experiment will be removed. Check the target file."))
+        if(shiny::isRunning()){
+          showNotification(duration = 8, tagList(icon("exclamation-circle"), 
+                                                 HTML("For ", i, " there isn't any CTRL. This experiment will be removed. Check the target file.")), type = "warning")
+        }
+        to_rem = c(to_rem, i)
+      }
+    }
+    
     
     
   }

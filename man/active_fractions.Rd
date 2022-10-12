@@ -7,6 +7,7 @@
 active_fractions(
   data_reporter,
   model_type,
+  andor = "OR",
   variable,
   type_ctrl,
   thresh_ctrl,
@@ -18,9 +19,11 @@ active_fractions(
 
 \item{model_type}{Character. A model type that will be used to filter the data.}
 
+\item{andor}{Character. If "AND" the function returns only the fractions contained in every model type, otherwhise every fraction. By default "OR".}
+
 \item{variable}{Character. In which variable search for active fractions. e.g. Concentration.average or GFP.average...}
 
-\item{type_ctrl}{Character. The control to use for the comparison. One of "CTRL" or "CTRL+".}
+\item{type_ctrl}{Character. The control to use for the comparison. One of "BETA_GLUCO_C20_1_S" (trem2) or "MeOH" (seap).}
 
 \item{thresh_ctrl}{Numeric. Percentage for the threshold of the CTRL/CTRL+. e.g. 50 is half of the CTRL, 200 is 2 times the CTRL.}
 

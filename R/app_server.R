@@ -19,7 +19,7 @@
 #' @importFrom stringr str_detect str_split_fixed
 #' @importFrom grDevices colorRampPalette
 #' @importFrom RColorBrewer brewer.pal
-#' @importFrom ComplexHeatmap HeatmapAnnotation Heatmap
+#' @import ComplexHeatmap
 #' @importFrom grid unit gpar
 #' @importFrom InteractiveComplexHeatmap makeInteractiveComplexHeatmap
 #' @importFrom utils combn
@@ -2529,16 +2529,19 @@ app_server <- function( input, output, session ) {
     
     kok = data_reporter()  %>% dplyr::filter(Product %in% input$query1_repo) %>% dplyr::select(Product, Model_type) %>% 
       dplyr::distinct() %>% dplyr::mutate(Presence = "yes") %>% 
-      tidyr::pivot_wider(names_from = Model_type, values_from = Presence) 
+      tidyr::pivot_wider(names_from = Model_type, values_from = Presence) %>% replace(is.na(.), "no")
     
-    for(m in unique(data_reporter()$Model_type)){
-      if(!(m %in% colnames(kok))){
-        newcol = data.frame(temp = "no")
-        colnames(newcol) = m
-        kok = kok %>% cbind(newcol)
+    if(length(kok) < length(unique(data_reporter()$Model_type))+1){
+      for(m in unique(data_reporter()$Model_type)){
+        if(!(m %in% colnames(kok))){
+          newcol = data.frame(temp = "no")
+          colnames(newcol) = m
+          kok = kok %>% cbind(newcol)
+        }
       }
     }
     
+
     dplyr::mutate(kok, across(-Product, ~case_when(. == "yes" ~  yes_icon, . == "no" ~  no_icon)))
     
 
@@ -2759,19 +2762,26 @@ app_server <- function( input, output, session ) {
   #update type of query based on seap or trem2
   observeEvent(input$sel_reporter,{
     if(input$sel_reporter == "SEAP"){
-      updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL")) #= '1'
+      updateSelectInput(session, "query_reporter", choices = c("Concentration greater than CTRL+"))
     }else{
-      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+")) #='4'
+      updateSelectInput(session, "query_reporter", choices = c("GFP fractions greater than CTRL+"))
     }
   })
   
   observeEvent(input$query_reporter,{
 
-    if(input$query_reporter == "Concentration greater than CTRL"){
+    if(input$query_reporter == "Concentration greater than CTRL+"){
       updateSelectInput(session, "query3_repo_modtype", choices = unique(data_reporter()$Model_type))
       updateSelectInput(session, "query_reporter2", choices = c("Enriched fractions"))
     }
   })
+  
+  
+  output$check_lengmodseap_andor = eventReactive(input$query3_repo_modtype,{
+    req(input$query3_repo_modtype)
+    length(input$query3_repo_modtype)
+  })
+  outputOptions(output, "check_lengmodseap_andor", suspendWhenHidden = FALSE)
   
   
   #### Add another query for SEAP
@@ -2839,12 +2849,13 @@ app_server <- function( input, output, session ) {
 
     ###SEAP
     
-    if(input$query_reporter == "Concentration greater than CTRL"){
+    if(input$query_reporter == "Concentration greater than CTRL+"){
       validate(need(input$query3_repo_modtype, "Please select at least one Model_type"))
       return(active_fractions(data_reporter = data_reporter(),
                               model_type = input$query3_repo_modtype,
+                              andor = input$query3_repo_modtype_andor,
                               variable = "Concentration.average",
-                              type_ctrl = "CTRL",
+                              type_ctrl = "MeOH",
                               thresh_ctrl = input$query3_repo_thresh))
     }
     
@@ -2854,7 +2865,7 @@ app_server <- function( input, output, session ) {
       return(active_fractions(data_reporter = data_reporter(),
                               model_type = unique(data_reporter()$Model_type),
                               variable = "GFP.average",
-                              type_ctrl = "CTRL+",
+                              type_ctrl = "BETA_GLUCO_C20_1_S",
                               thresh_ctrl = input$query4_repo_thresh))
     }
     
@@ -2871,7 +2882,7 @@ app_server <- function( input, output, session ) {
       return(query_repo_data2())
     }else{
       #SEAP
-      if(input$query_reporter == "Concentration greater than CTRL" && input$query_reporter2 == "Enriched fractions"){
+      if(input$query_reporter == "Concentration greater than CTRL+" && input$query_reporter2 == "Enriched fractions"){
         enriched_fractions(prod_trem = query_repo_data2(), data_reporter = data_reporter(), repo_type = "SEAP")
         
         ##TREM2
@@ -2883,7 +2894,7 @@ app_server <- function( input, output, session ) {
           query_trem_vita = active_fractions(data_reporter = data_reporter(),
                                               model_type = unique(data_reporter()$Model_type),
                                               variable = "Vitality.average",
-                                              type_ctrl = "CTRL+",
+                                              type_ctrl = "BETA_GLUCO_C20_1_S",
                                               thresh_ctrl = input$query_vita_repo_thresh)
           query_trem_vita = intersect(query_repo_data2(), query_trem_vita)
           
@@ -3125,15 +3136,20 @@ app_server <- function( input, output, session ) {
   ##### QUERY INTEGRATION #####
   
   ##### options for first query #####
-  observeEvent(input$seldata_query1_int,{
-    if(input$seldata_query1_int == "TREM2"){
-      updateSelectInput(session, "queryint_active_var1", choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average"))
-    }
+  
+  output$uiactivefrac_q1 = renderUI({
+    req(input$seldata_query1_int)
+    
     if(input$seldata_query1_int == "SEAP"){
-      updateSelectInput(session, "queryint_active_var1", choices = c("Concentration" = "Concentration.average"))
+      column(width = 12, selectInput("queryint_active_var1", "Active fractions in:",choices = c("Concentration" = "Concentration.average")))
+    }else{
+      column(width = 8, selectInput("queryint_active_var1", "Active fractions in:",choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average")))
     }
   })
   
+
+  
+
   observeEvent(input$queryint_active_var1,{
     if(input$queryint_active_var1 == "GFP.average"){
       updateSelectInput(session, "queryint_active_var2", choices = c("Vitality" = "Vitality.average"))
@@ -3142,8 +3158,25 @@ app_server <- function( input, output, session ) {
     }
   })
   
-
   
+  #update modeltype for seap
+  observeEvent(input$seldata_query1_int,{
+    if(!is.null(loaded_database_seap())){
+      updateSelectInput(session,"queryinteg_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+    }
+  })
+  
+  
+  output$check_lengmodint1_andor = eventReactive(input$queryinteg_seap_modtype,{
+    req(input$queryinteg_seap_modtype)
+    length(input$queryinteg_seap_modtype)
+  })
+  outputOptions(output, "check_lengmodint1_andor", suspendWhenHidden = FALSE)
+  
+  
+
+
+
   #to update the button
   observeEvent(input$add_queryint_active_var,{
     if(input$add_queryint_active_var %%2 == 1){
@@ -3176,12 +3209,7 @@ app_server <- function( input, output, session ) {
   })
   
   
-  #update modeltype for seap
-  observeEvent(input$seldata_query1_int,{
-    if(!is.null(loaded_database_seap())){
-      updateSelectInput(session,"queryinteg_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
-    }
-  })
+
   
   
   
@@ -3204,21 +3232,33 @@ app_server <- function( input, output, session ) {
   
   
   ### TREM2 and SEAP
- 
-  observeEvent(input$seldata_query2_int,{
-    if(input$seldata_query2_int == "TREM2"){
-      updateSelectInput(session, "queryint2_active_var1", choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average"))
-    }
+  
+  
+  output$uiactivefrac_q2 = renderUI({
+    req(input$seldata_query2_int)
+
     if(input$seldata_query2_int == "SEAP"){
-      updateSelectInput(session, "queryint2_active_var1", choices = c("Concentration" = "Concentration.average"))
-    }
-    
-    #update modeltype for seap
-    if(!is.null(loaded_database_seap())){
-      updateSelectInput(session,"queryinteg2_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+      column(width = 12, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("Concentration" = "Concentration.average")))
+    }else{
+      column(width = 8, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average")))
     }
   })
   
+  
+ 
+  observeEvent(input$seldata_query2_int,{
+    #update modeltype for seap
+    updateSelectInput(session,"queryinteg2_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+  })
+  
+  
+
+
+  output$check_lengmodint2_andor = eventReactive(input$queryinteg2_seap_modtype,{
+    req(input$queryinteg2_seap_modtype)
+    length(input$queryinteg2_seap_modtype)
+  })
+  outputOptions(output, "check_lengmodint2_andor", suspendWhenHidden = FALSE)
   
   
   observeEvent(input$queryint2_active_var1,{
@@ -3284,8 +3324,9 @@ app_server <- function( input, output, session ) {
       firstquery = active_fractions(data_reporter = data,
                                     model_type = input$queryinteg_seap_modtype,
                                     variable = input$queryint_active_var1,
-                                    type_ctrl = "CTRL",
-                                    thresh_ctrl = input$thresh_active_integ1, 
+                                    type_ctrl = "MeOH",
+                                    thresh_ctrl = input$thresh_active_integ1,
+                                    andor = input$queryinteg_seap_modtype_andor,
                                     final_msg = FALSE)
       
       
@@ -3296,7 +3337,7 @@ app_server <- function( input, output, session ) {
       query_active1 = active_fractions(data_reporter = data,
                                        model_type = unique(data$Model_type),
                                        variable = input$queryint_active_var1,
-                                       type_ctrl = "CTRL+",
+                                       type_ctrl = "BETA_GLUCO_C20_1_S",
                                        thresh_ctrl = input$thresh_active_integ1,
                                        final_msg = FALSE)
       #2 variables
@@ -3305,7 +3346,7 @@ app_server <- function( input, output, session ) {
         query_active2 = active_fractions(data_reporter = data,
                                          model_type = unique(data$Model_type),
                                          variable = input$queryint_active_var2,
-                                         type_ctrl = "CTRL+",
+                                         type_ctrl = "BETA_GLUCO_C20_1_S",
                                          thresh_ctrl = input$thresh_active_integ2,
                                          final_msg = FALSE)
         firstquery = intersect(query_active1, query_active2)
@@ -3385,8 +3426,9 @@ app_server <- function( input, output, session ) {
       secondquery = active_fractions(data_reporter = data,
                                      model_type = input$queryinteg2_seap_modtype,
                                      variable = input$queryint2_active_var1,
-                                     type_ctrl = "CTRL",
+                                     type_ctrl = "MeOH",
                                      thresh_ctrl = input$thresh_active2_integ1,
+                                     andor = input$queryinteg2_seap_modtype_andor,
                                      final_msg = FALSE)
       
     #### TREM2
@@ -3397,7 +3439,7 @@ app_server <- function( input, output, session ) {
       query_active21 = active_fractions(data_reporter = data,
                                         model_type = unique(data$Model_type),
                                         variable = input$queryint2_active_var1,
-                                        type_ctrl = "CTRL+",
+                                        type_ctrl = "BETA_GLUCO_C20_1_S",
                                         thresh_ctrl = input$thresh_active2_integ1,
                                         final_msg = FALSE)
       #2 variables
@@ -3406,11 +3448,11 @@ app_server <- function( input, output, session ) {
         query_active22 = active_fractions(data_reporter = data,
                                           model_type = unique(data$Model_type),
                                           variable = input$queryint2_active_var2,
-                                          type_ctrl = "CTRL+",
+                                          type_ctrl = "BETA_GLUCO_C20_1_S",
                                           thresh_ctrl = input$thresh_active2_integ2,
                                           final_msg = FALSE)
         secondquery = intersect(query_active21, query_active22)
-        showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
+        #showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
         
         
       }else{
@@ -3452,7 +3494,7 @@ app_server <- function( input, output, session ) {
   
   
   
-  ### plot query integrazione
+  #### plot query integrazione ####
   
   observeEvent(query_integr(),{
     
@@ -3468,7 +3510,7 @@ app_server <- function( input, output, session ) {
   output$bubble_query_integ = renderPlotly({
     req(query_integr())
     
-    temp = ggplot(query_integr(), aes_string(x= input$bubb_integ_X, y = input$bubb_integ_Y))
+    temp = ggplot(query_integr(), aes_string(x= input$bubb_integ_X, y = input$bubb_integ_Y, label = "Product"))
     
     if(input$bubb_integ_fill == "None" && input$bubb_integ_size == "None"){
       temp = temp + geom_point()
@@ -3490,6 +3532,109 @@ app_server <- function( input, output, session ) {
     req(query_integr())
     query_integr()
   },options = list(scrollX = TRUE))
+  
+  
+  
+  #data for truth table and upset plot
+  truth_upset_data = reactive({
+    req(first_query_integ())
+    req(second_query_integ())
+
+    ### original dataset first query
+    if(input$seldata_query1_int == "SEAP"){
+      req(loaded_database_seap())
+      data1 = loaded_database_seap()$mydataset
+    }else if(input$seldata_query1_int == "TREM2"){
+      req(loaded_database_trem2())
+      data1 = loaded_database_trem2()$mydataset
+    }
+    fir_orig = paste0(data1$Product_Family, data1$Product, data1$Dose, data1$Purification)
+
+    ### results first query
+    sample_first = first_query_integ() %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
+      dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
+    
+    ### results second query
+    sample_sec = paste(second_query_integ()$Product_Family, second_query_integ()$Product, second_query_integ()$Dose, second_query_integ()$Purification, sep = ".")
+    
+    ### Original dataset second query
+    if(input$seldata_query2_int == "Cytotoxicity"){
+      req(dataquery_cyto())
+      sample_sec_orig = dataquery_cyto()
+    } else if(input$seldata_query2_int == "SEAP"){
+      req(loaded_database_seap())
+      sample_sec_orig = loaded_database_seap()$mydataset
+    }else if(input$seldata_query2_int == "TREM2"){
+      req(loaded_database_trem2())
+      sample_sec_orig = loaded_database_trem2()$mydataset
+    }
+    sample_sec_orig = paste(sample_sec_orig$Product_Family, sample_sec_orig$Product, sample_sec_orig$Dose, sample_sec_orig$Purification, sep = ".")
+    
+    list(original_first = fir_orig,
+         first_query = sample_first,
+         original_second = sample_sec_orig,
+         second_query = sample_sec)
+  })
+  
+  
+  
+  output$query_integ_dt_truth = renderDT({
+    req(truth_upset_data())
+    
+    truth = truth_upset_data()$first_query %>% dplyr::mutate(sec_orig = case_when(sample %in% truth_upset_data()$original_second ~ yes_icon, TRUE ~ no_icon), 
+                                           sample_sec = case_when(sample %in% truth_upset_data()$second_query ~ yes_icon, TRUE ~ no_icon)) %>% 
+      dplyr::mutate(sample = yes_icon)
+    
+    names(truth)[names(truth) == "sample"] <- paste0(input$seldata_query1_int, ".query")
+    names(truth)[names(truth) == "sec_orig"] <- paste0(input$seldata_query2_int, ".original")
+    names(truth)[names(truth) == "sample_sec"] <- paste0(input$seldata_query2_int, ".query")
+
+    truth
+    
+  }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
+  options = list(lengthMenu = c(10, 15, 20, 25, 50), pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 4:6))))
+  
+  
+  
+  output$upset_queryinteg = renderPlot({
+    req(truth_upset_data())
+    
+    lt = truth_upset_data()
+    lt$first_query = lt$first_query$sample
+    
+    names(lt) = c(paste0(input$seldata_query1_int, ".original"), paste0(input$seldata_query1_int, ".query"), 
+                  paste0(input$seldata_query2_int, ".original"), paste0(input$seldata_query2_int, ".query"))
+    
+    comb_mat = ComplexHeatmap::make_comb_mat(lt, mode = input$type_upset)
+    
+    cs = ComplexHeatmap::comb_size(comb_mat)
+    cm_degree = ComplexHeatmap::comb_degree(comb_mat)
+    aux_color <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(12,"Paired"))
+    
+    ht = ComplexHeatmap::UpSet(comb_mat,  set_order = c(1,2,3,4), pt_size = grid::unit(5,"mm"), lwd = 3,
+                               comb_col = aux_color(length(cm_degree)),
+                               #comb_order = order(cm_degree, -cs), #inverte ordine barre
+                               top_annotation = HeatmapAnnotation(
+                                 "Intersection size" = ComplexHeatmap::anno_barplot(cs,
+                                                                                    ylim = c(0, max(cs)*1.1),
+                                                                                    border = FALSE,
+                                                                                    gp = grid::gpar(fill = aux_color(length(cm_degree))),
+                                                                                    height = grid::unit(10, "cm")
+                                 ),
+                                 annotation_name_side = "left",
+                                 annotation_name_rot = 0),
+                               right_annotation = upset_right_annotation(comb_mat, add_numbers = TRUE)
+    )
+    ht = ComplexHeatmap::draw(ht)
+    od = ComplexHeatmap::column_order(ht)
+    ComplexHeatmap::decorate_annotation("Intersection size", {
+      grid::grid.text(cs[od], x = seq_along(cs), y = grid::unit(cs[od], "native") + grid::unit(4, "pt"),
+                      default.units = "native", just = c("center", "bottom"),
+                      gp = grid::gpar(fontsize = 10, col = "#404040"), rot = 0)
+    })
+    
+  })
+  
   
   
 }

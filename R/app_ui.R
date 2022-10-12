@@ -925,7 +925,7 @@ app_ui <- function(request) {
                   column(
                     4,
                     conditionalPanel(
-                      condition = "input.query_reporter == 'Concentration greater than CTRL'",
+                      condition = "input.query_reporter == 'Concentration greater than CTRL+'",
                       sliderInput("query3_repo_thresh", "Threshold fraction greater than CTRL (%)", min = 100, max = 300, value = 200, step = 10)
                     ),
                     
@@ -937,8 +937,10 @@ app_ui <- function(request) {
                   column(
                     3,
                     conditionalPanel(
-                      condition = "input.query_reporter == 'Concentration greater than CTRL'",
-                      selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T)
+                      condition = "input.query_reporter == 'Concentration greater than CTRL+'",
+                      selectInput("query3_repo_modtype", "Select a Model type", choices = "", multiple  = T),
+                      conditionalPanel("output.check_lengmodseap_andor > 1",
+                                       awesomeRadio("query3_repo_modtype_andor", label = NULL, choices = c("OR","AND"), inline = TRUE))
                     )
                   ),
                   column(
@@ -963,7 +965,7 @@ app_ui <- function(request) {
                 box(
                   width = NULL, status = "primary",
                   conditionalPanel(
-                    condition = "input.query_reporter == 'Concentration greater than CTRL'",
+                    condition = "input.query_reporter == 'Concentration greater than CTRL+'",
                     fluidRow(
                       column(3,selectInput("query_reporter2", "Second query type", choices = "")),
                       column(
@@ -1180,6 +1182,7 @@ app_ui <- function(request) {
           tabItem(
             tabName = "intquerytab",
             
+            fluidPage(
             ###first query
             column(
               9,
@@ -1187,20 +1190,26 @@ app_ui <- function(request) {
                 width = NULL, status = "primary",
                 fluidRow(
                   #select the database
-                  column(2, awesomeRadio("seldata_query1_int", "Database", choices = c("TREM2", "SEAP"))),
+                  column(2, awesomeRadio("seldata_query1_int", "Database", choices = c("TREM2", "SEAP"), selected = "TREM2")),
                   
                   #### TREM2 and SEAP FIRST ####
                   conditionalPanel(
                     "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'SEAP'",
-                    
+
                     #modeltype for seap
-                    column(3, conditionalPanel("input.seldata_query1_int == 'SEAP'",
-                                               selectInput("queryinteg_seap_modtype", "Filter Model type", choices = "", multiple  = T))),
+                    conditionalPanel("input.seldata_query1_int == 'SEAP'",
+                      column(3, 
+                        selectInput("queryinteg_seap_modtype", "Filter Model type", choices = "", multiple  = T),
+                        conditionalPanel(
+                          "output.check_lengmodint1_andor > 1",
+                          awesomeRadio("queryinteg_seap_modtype_andor", label = NULL, choices = c("OR","AND"), inline = TRUE))
+                        )),
+                    
                     
                     column(
                       3, 
                       fluidRow(
-                        column(8,selectInput("queryint_active_var1", "Active fractions in:", choices = "")),
+                        uiOutput("uiactivefrac_q1"),
                         conditionalPanel(
                           "input.seldata_query1_int == 'TREM2'",
                           column(4, br(),shinyBS::bsButton("add_queryint_active_var", label = "", style="success", icon("plus")))
@@ -1212,6 +1221,8 @@ app_ui <- function(request) {
                         fluidRow(column(8,br(),selectInput("queryint_active_var2", "Active fractions in:", choices = "")))
                       )
                   ),
+                  
+
                   
                   column(4,
                     sliderInput("thresh_active_integ1", "", min = 10, max = 100, value = 50),
@@ -1232,7 +1243,7 @@ app_ui <- function(request) {
 
               box(width = NULL, status = "primary",
                   fluidRow(
-                    column(2, awesomeRadio("seldata_query2_int", "Database", choices = c("Cytotoxicity", "TREM2", "SEAP"))),
+                    column(2, awesomeRadio("seldata_query2_int", "Database", choices = c("Cytotoxicity","TREM2", "SEAP"))),
                     
                     #### cytotoxicity ####
                     conditionalPanel(
@@ -1255,10 +1266,23 @@ app_ui <- function(request) {
                     #### TREM2 and SEAP FIRST ####
                     conditionalPanel(
                       "input.seldata_query2_int == 'TREM2' || input.seldata_query2_int == 'SEAP'",
+                      
+                      #modeltype for seap
+                      conditionalPanel(
+                        "input.seldata_query2_int == 'SEAP'",
+                        column(
+                          3, 
+                          selectInput("queryinteg2_seap_modtype", "Select a Model type", choices = "", multiple  = T),
+                          conditionalPanel(
+                            "output.check_lengmodint2_andor > 1",
+                            awesomeRadio("queryinteg2_seap_modtype_andor", label = NULL, choices = c("OR","AND"), inline = TRUE))
+                          )),
+                      
+                      
                       column(
                         3, 
                         fluidRow(
-                          column(8,selectInput("queryint2_active_var1", "Active fractions in:", choices = "")),
+                          uiOutput("uiactivefrac_q2"),
                           conditionalPanel(
                             "input.seldata_query2_int == 'TREM2'",
                             column(4, br(),shinyBS::bsButton("add_queryint2_active_var", label = "", style="success", icon("plus")))
@@ -1269,6 +1293,7 @@ app_ui <- function(request) {
                           "output.checkadd_queryint2_active_var == 'twovar'",
                           fluidRow(column(8,br(),selectInput("queryint2_active_var2", "Active fractions in:", choices = "")))
                         )
+
                       ),
                       
                       column(4,
@@ -1277,11 +1302,9 @@ app_ui <- function(request) {
                                "output.checkadd_queryint2_active_var == 'twovar'",
                                sliderInput("thresh_active2_integ2", "Threshold fraction greater than CTRL+ (%)", min = 10, max = 200, value = 100, step =10)
                              )
-                      ),
+                      )
                       
-                      #modeltype for seap
-                      column(3, conditionalPanel("input.seldata_query2_int == 'SEAP'",
-                                                 selectInput("queryinteg2_seap_modtype", "Select a Model type", choices = "", multiple  = T)))
+
                       
                     ) #end of trem2 and seap
                     
@@ -1310,7 +1333,22 @@ app_ui <- function(request) {
 
             column(12,
               tabsetPanel(
-                tabPanel("Datatable",icon = icon("table"), shinycssloaders::withSpinner(DTOutput("query_integ_dt"))),
+                tabPanel(
+                  "Datatable",icon = icon("table"),
+                  fluidPage(
+                    awesomeRadio("seltypedt_finalquery", label = "", choices = c("Table with results", "Truth table", "Upset plot"), inline = TRUE),
+                    conditionalPanel("input.seltypedt_finalquery == 'Table with results'",
+                                     shinycssloaders::withSpinner(DTOutput("query_integ_dt"))),
+                    conditionalPanel("input.seltypedt_finalquery == 'Truth table'",
+                                     shinycssloaders::withSpinner(DTOutput("query_integ_dt_truth"))),
+                    conditionalPanel("input.seltypedt_finalquery == 'Upset plot'",
+                                     awesomeRadio("type_upset", "Mode upset plot", choices = c("distinct", "intersect")),
+                                     plotOutput("upset_queryinteg"))
+                  )
+
+                         
+                  ),
+                
                 tabPanel(
                   "Plots", icon = icon("chart-bar"),
                   sidebarLayout(
@@ -1323,14 +1361,14 @@ app_ui <- function(request) {
                     ),
                     mainPanel(
                       width = 9,
-                      box(width = 12, status = "primary", shinycssloaders::withSpinner(plotlyOutput("bubble_query_integ")))
+                       shinycssloaders::withSpinner(plotlyOutput("bubble_query_integ"))
                     )
                   )
                 )
               )
             )
             
-
+          )
             ) #end of tabitem query integrazione
           
           

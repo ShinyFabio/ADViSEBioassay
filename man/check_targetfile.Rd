@@ -4,7 +4,7 @@
 \alias{check_targetfile}
 \title{check_targetfile}
 \usage{
-check_targetfile(target, explist, check_back = TRUE)
+check_targetfile(target, explist, check_back = TRUE, check_ctrl = TRUE)
 }
 \arguments{
 \item{target}{The target file (dataframe).}
@@ -12,6 +12,8 @@ check_targetfile(target, explist, check_back = TRUE)
 \item{explist}{The experiment list file.}
 
 \item{check_back}{Boolean. Set to TRUE if you want to check the existence of the BACKGROUND. Default to TRUE (cyto and seap). Set to FALSE for D1 and TREM2.}
+
+\item{check_ctrl}{Boolean. Set to TRUE if you want to check the existence of the CTRLs. Default to TRUE. Set to FALSE only for target calibration file (SEAP).}
 }
 \description{
 \code{check_targetfile} Run a check on the target file. Returns a target file without the faulty experiments.
