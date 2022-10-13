@@ -17,7 +17,8 @@ queryD1 <- function(data_D1,
                     MFI = c("CD80","CD40","MHC-II"),
                     operation = "greater than",
                     thresh = 2.5,
-                    andor = "OR"){
+                    andor = "OR",
+                    final_msg = TRUE){
   
   mydataset_D1 = dplyr::filter(data_D1, !dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
   cnt_D1 <- dplyr::filter(data_D1, dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
@@ -77,17 +78,20 @@ queryD1 <- function(data_D1,
     raw = temp[[MFI]]
   }
   
-  if(!is.null(raw)){
-    message("Completed! Found ", length(raw$Product), " fractions.")
-    if(shiny::isRunning()){
-      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(raw$Product)), " fractions.")), type = "message")
-    }
-  }else{
-    message("ERROR. Output is null")
-    if(shiny::isRunning()){
-      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
+  if(final_msg){
+    if(!is.null(raw)){
+      message("Completed! Found ", length(raw$Product_Family), " fractions.")
+      if(shiny::isRunning()){
+        showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(raw$Product_Family)), " Product Family.")), type = "message")
+      }
+    }else{
+      message("ERROR. Output is null")
+      if(shiny::isRunning()){
+        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
+      }
     }
   }
+
   
   return(raw)
   

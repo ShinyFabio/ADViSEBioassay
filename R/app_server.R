@@ -789,7 +789,7 @@ app_server <- function( input, output, session ) {
       temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
     }
     if(!is.null(temp)){
-      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " fractions.")), type = "message")
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$raw$Product_Family)), " Product Family.")), type = "message")
     }
     
     return(temp)
@@ -1476,42 +1476,15 @@ app_server <- function( input, output, session ) {
 
     #mydataset_D1 = dataquery_D1()
     #cnt_D1 <- data_D1() %>% dplyr::filter(if_any("Product_Family", ~grepl("CTRL",.)))
-    
+    final_msg = ifelse(input$add2query_d1 %%2 == 1, FALSE, TRUE)
     
     raw = queryD1(data_D1 = data_D1(),
                   MFI = input$selcol_query_d1,
                   operation = input$selop_query_d1,
                   thresh = as.numeric(input$thresh_query_d1),
-                  andor = input$andor_query_d1)
-    # temp = NULL
-    # for(i in input$selcol_query_d1){
-    #   temp[[i]] = lapply(unique(mydataset_D1$Product_Family), function(x){
-    #     data = dplyr::filter(mydataset_D1, Product_Family == x)
-    #     if(length(unique(data$Purification)) >1){
-    #       #if there are multiple purification, we have to check for each purification
-    #       lapply(unique(data$Purification), function(k){
-    #         data2 = data %>% dplyr::filter(Purification == k)
-    #         cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-    #         if(input$selop_query_d1 == "greater than"){
-    #           data2 %>% dplyr::filter(get(i) > mean(cnt2[,i])*input$thresh_query_d1)
-    #         }else{
-    #           data2 %>% dplyr::filter(get(i) >= mean(cnt2[,i])*input$thresh_query_d1)
-    #         }
-    #         
-    #       }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
-    #       
-    #     }else{
-    #       cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-    #       if(input$selop_query_d1 == "greater than"){
-    #         data %>% dplyr::filter(get(i) > mean(cnt[,i])*input$thresh_query_d1)
-    #       }else{
-    #         data %>% dplyr::filter(get(i) >= mean(cnt)*input$thresh_query_d1)
-    #       }
-    #     }
-    #   })
-    #   
-    #   temp[[i]] = data.frame(Reduce(rbind, temp[[i]]))
-    # }
+                  andor = input$andor_query_d1,
+                  final_msg = final_msg)
+
 
     if(input$add2query_d1 %%2 == 1){
       raw = operation_filtering(data = raw,
@@ -1520,6 +1493,9 @@ app_server <- function( input, output, session ) {
                                 value = input$thresh_query_d12,
                                 n_query = "one",
                                 type_output = "raw")
+      
+      showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(raw$Product_Family)), " Product Family.")), type = "message")
+      
     }
     
     
@@ -3045,10 +3021,10 @@ app_server <- function( input, output, session ) {
     req(input$infoprod_select_button)
     
     #for package
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
+    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
     
     #for dev
-    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
     
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
     photo_path = paste0("www/foto_organismi/", prod_fam, ".jpg")

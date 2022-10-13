@@ -9,7 +9,8 @@ queryD1(
   MFI = c("CD80", "CD40", "MHC-II"),
   operation = "greater than",
   thresh = 2.5,
-  andor = "OR"
+  andor = "OR",
+  final_msg = TRUE
 )
 }
 \arguments{
