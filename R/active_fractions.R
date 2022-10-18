@@ -28,7 +28,7 @@ active_fractions = function(data_reporter, model_type, andor = "OR",variable, ty
     return(NULL)
   }
   
-  data_repo = dplyr::filter(data_reporter, !dplyr::if_any("Product", ~grepl(type_ctrl,.)))
+  data_repo = dplyr::filter(data_reporter, !dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
   cnt_seap <- dplyr::filter(data_reporter, Product == type_ctrl)
   
 
@@ -48,9 +48,9 @@ active_fractions = function(data_reporter, model_type, andor = "OR",variable, ty
         lapply(unique(data$Purification), function(k){
           
           data2 = data %>% dplyr::filter(Purification == k)
-          lapply(unique(data$Experiment_id), function(eid){
+          lapply(unique(data2$Experiment_id), function(eid){
             cnt = cnt_seap %>% dplyr::filter(Experiment_id == eid) %>% as.data.frame()
-            data %>% dplyr::filter(Experiment_id == eid) %>% dplyr::filter(get(variable) >= cnt[,variable]*(thresh_ctrl/100))
+            data2 %>% dplyr::filter(Experiment_id == eid) %>% dplyr::filter(get(variable) >= cnt[,variable]*(thresh_ctrl/100))
 
           }) %>% {do.call(rbind, .)}
 
@@ -87,7 +87,7 @@ active_fractions = function(data_reporter, model_type, andor = "OR",variable, ty
   
   
   if(!is.null(temp)){
-    if(final_msg == TRUE){
+    if(final_msg){
       message("Completed! Found ", length(temp$Product), " fractions.")
       if(shiny::isRunning()){
         showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(temp$Product)), " fractions.")), type = "message")

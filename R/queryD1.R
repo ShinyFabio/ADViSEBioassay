@@ -20,8 +20,13 @@ queryD1 <- function(data_D1,
                     andor = "OR",
                     final_msg = TRUE){
   
+  message("Searching for fractions with ",paste(collapse = ", ",MFI)," greater than ",thresh*100, "% of CTRL...")
+  if(shiny::isRunning()){
+    showNotification(tagList(icon("gears"), HTML("&nbsp;Searching for fractions with", paste(collapse = ", ",MFI),"greater than ",thresh*100,"% of CTRL...")), type = "default")
+  }
+  
   mydataset_D1 = dplyr::filter(data_D1, !dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
-  cnt_D1 <- dplyr::filter(data_D1, dplyr::if_any("Product_Family", ~grepl("CTRL",.)))
+  cnt_D1 <- dplyr::filter(data_D1, Product == "CTRL")
   
 
   temp = sapply(MFI,simplify = FALSE, USE.NAMES = TRUE, function(i){
@@ -30,19 +35,13 @@ queryD1 <- function(data_D1,
       showNotification(tagList(icon("gears"), HTML("&nbsp;Searching inside ", i, "...")), type = "default")
     }
     
-    #il parallel qui stranamente non funziona
-    #cl <- parallel::makeCluster(parallel::detectCores(logical = T)-1)
-    #parallel::clusterEvalQ(cl,{library(dplyr)})
-    #parallel::clusterExport(cl, c("i", "mydataset_D1", "cnt_D1","operation", "thresh", "filter"), envir=environment())
-    
-    #temp2 = parallel::parLapply(cl, unique(mydataset_D1$Product_Family), function(x){
     lapply(unique(mydataset_D1$Product_Family), function(x){
       data = dplyr::filter(mydataset_D1, Product_Family == x)
       if(length(unique(data$Purification)) >1){
         #if there are multiple purification, we have to check for each purification
         lapply(unique(data$Purification), function(k){
           data2 = dplyr::filter(data, Purification == k)
-          cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id) & Product == "CTRL") %>% as.data.frame()
+          cnt2 = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data2$Experiment_id)) %>% as.data.frame()
           if(operation == "greater than"){
             data2 %>% dplyr::filter(base::get(i) > mean(cnt2[,i])*thresh)
           }else{
@@ -52,23 +51,32 @@ queryD1 <- function(data_D1,
         }) %>% {Reduce(rbind, .)} #dato che %>% assegna come primo posto, uso {} e metto il . per la posizione.
         
       }else{
-        cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id) & Product == "CTRL") %>% as.data.frame()
-        if(operation == "greater than"){
-          data %>% dplyr::filter(base::get(i) > mean(cnt[,i])*thresh)
-        }else{
-          data %>% dplyr::filter(base::get(i) >= mean(cnt)*thresh)
-        }
+        cnt = cnt_D1 %>% dplyr::filter(Experiment_id %in% unique(data$Experiment_id)) %>% as.data.frame()
+        lapply(unique(data$Experiment_id), function(eid){
+          cnt = cnt %>% dplyr::filter(Experiment_id == eid) %>% as.data.frame()
+          if(operation == "greater than"){
+            data %>% dplyr::filter(Experiment_id == eid) %>% dplyr::filter(base::get(i) > cnt[,i]*thresh)
+          }else{
+            data %>% dplyr::filter(Experiment_id == eid) %>% dplyr::filter(base::get(i) >= cnt[,i]*thresh)
+          }
+
+        }) %>% {do.call(rbind, .)} 
+        
+        
+
       }
     }) %>% {Reduce(rbind, .)}
-    
-    #parallel::stopCluster(cl)
-    #temp2
-    
+
   })
   
   
   if(length(MFI) > 1){
+    #removing fractions not contained in all mfi selected
     if(andor == "AND"){
+      message("Taking only active fractions in ",paste(collapse = ", ",MFI),"...")
+      if(shiny::isRunning()){
+        showNotification(tagList(icon("gears"), HTML("&nbsp;Taking only active fractions in ", paste(collapse = ", ",MFI), "...")), type = "default")
+      }
       raw = Reduce(intersect, temp)
     }else{
       raw = Reduce(rbind, temp) %>% dplyr::distinct()
@@ -78,21 +86,22 @@ queryD1 <- function(data_D1,
     raw = temp[[MFI]]
   }
   
-  if(final_msg){
-    if(!is.null(raw)){
+  
+  if(!is.null(raw)){
+    if(final_msg){
       message("Completed! Found ", length(raw$Product_Family), " fractions.")
       if(shiny::isRunning()){
         showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(raw$Product_Family)), " Product Family.")), type = "message")
       }
-    }else{
-      message("ERROR. Output is null")
-      if(shiny::isRunning()){
-        showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
-      }
+    }
+  }else{
+    message("ERROR. Output is null")
+    if(shiny::isRunning()){
+      showNotification(tagList(icon("circle-xmark"), HTML("&nbsp;ERROR. Output is null")), type = "error")
     }
   }
-
   
+
   return(raw)
   
 }

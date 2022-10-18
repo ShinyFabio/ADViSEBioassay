@@ -3111,49 +3111,161 @@ app_server <- function( input, output, session ) {
   
   ##### QUERY INTEGRATION #####
   
-  ##### options for first query #####
+  ##### Options for query #####
   
+
+  ### cytotoxicitiy
+  observeEvent(dataquery_cyto(),{
+    cols = dataquery_cyto() %>% dplyr::select(where(is.double)) %>% dplyr::select(-Dose) %>% colnames()
+    
+    ##first query
+    updateSelectInput(session, "filtmod_query_cyto_integ1", choices = c("All",unique(dataquery_cyto()$Model_type)))
+    updateSelectInput(session, "selcol_query_cyto_integ1", choices = cols)
+    
+    ##second query
+    updateSelectInput(session, "filtmod_query_cyto_integ", choices = c("All",unique(dataquery_cyto()$Model_type)))
+    updateSelectInput(session, "selcol_query_cyto_integ", choices = cols)
+  })
+  
+  ##check how many modeltypes first query
+  output$check_lengmodint1_cyto_andor = eventReactive(input$filtmod_query_cyto_integ1,{
+    req(input$filtmod_query_cyto_integ1)
+    ifelse("All" %in% input$filtmod_query_cyto_integ1, length(unique(dataquery_cyto()$Model_type)), length(input$filtmod_query_cyto_integ1))
+  })
+  outputOptions(output, "check_lengmodint1_cyto_andor", suspendWhenHidden = FALSE)
+  
+  
+  ##check how many modeltypes second query
+  output$check_lengmodint2_cyto_andor = eventReactive(input$filtmod_query_cyto_integ,{
+    req(input$filtmod_query_cyto_integ)
+    ifelse("All" %in% input$filtmod_query_cyto_integ, length(unique(dataquery_cyto()$Model_type)), length(input$filtmod_query_cyto_integ))
+  })
+  outputOptions(output, "check_lengmodint2_cyto_andor", suspendWhenHidden = FALSE)
+  
+  
+  
+  
+  ### TREM2 and SEAP and D1
+  
+
+  ##UI first query
   output$uiactivefrac_q1 = renderUI({
     req(input$seldata_query1_int)
     
     if(input$seldata_query1_int == "SEAP"){
       column(width = 12, selectInput("queryint_active_var1", "Active fractions in:",choices = c("Concentration" = "Concentration.average")))
+    }else if(input$seldata_query1_int == "D1"){
+      cols = data_D1() %>% dplyr::select(where(is.double) & -starts_with(c("Cyto", "Vita")) & -ends_with("CV"),-Dose) %>% colnames()
+      column(width = 8, selectInput("queryint_active_var1", "Active fractions in:",choices = cols, multiple = TRUE))
     }else{
       column(width = 8, selectInput("queryint_active_var1", "Active fractions in:",choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average")))
     }
   })
   
+  ##UI second query
+  output$uiactivefrac_q2 = renderUI({
+    req(input$seldata_query2_int)
 
-  
-
-  observeEvent(input$queryint_active_var1,{
-    if(input$queryint_active_var1 == "GFP.average"){
-      updateSelectInput(session, "queryint_active_var2", choices = c("Vitality" = "Vitality.average"))
+    if(input$seldata_query2_int == "SEAP"){
+      column(width = 12, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("Concentration" = "Concentration.average")))
+    }else if(input$seldata_query2_int == "D1"){
+      cols = data_D1() %>% dplyr::select(where(is.double) & -starts_with(c("Cyto", "Vita")) & -ends_with("CV"),-Dose) %>% colnames()
+      column(width = 8, selectInput("queryint2_active_var1", "Active fractions in:",choices = cols, multiple = TRUE))
     }else{
-      updateSelectInput(session, "queryint_active_var2", choices = c("GFP" = "GFP.average"))
+      column(width = 8, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average")))
     }
   })
   
   
-  #update modeltype for seap
+ 
+  #update modeltype for seap first query
   observeEvent(input$seldata_query1_int,{
-    if(!is.null(loaded_database_seap())){
-      updateSelectInput(session,"queryinteg_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
-    }
+    updateSelectInput(session,"queryinteg_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
+  })
+  
+  #update modeltype for seap second query
+  observeEvent(input$seldata_query2_int,{
+    updateSelectInput(session,"queryinteg2_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
   })
   
   
+
+  
+  #check how many seap modtype FIRST query
   output$check_lengmodint1_andor = eventReactive(input$queryinteg_seap_modtype,{
     req(input$queryinteg_seap_modtype)
     length(input$queryinteg_seap_modtype)
   })
   outputOptions(output, "check_lengmodint1_andor", suspendWhenHidden = FALSE)
   
+  #check how many seap modtype SECOND query
+  output$check_lengmodint2_andor = eventReactive(input$queryinteg2_seap_modtype,{
+    req(input$queryinteg2_seap_modtype)
+    length(input$queryinteg2_seap_modtype)
+  })
+  outputOptions(output, "check_lengmodint2_andor", suspendWhenHidden = FALSE)
+  
+  
   
 
+  ## first query slider and active vars
+  observeEvent(c(input$seldata_query1_int,input$queryint_active_var1),{
+    if(!is.null(input$queryint_active_var1)){
+      #second active var
+      if(input$seldata_query1_int == "D1" || input$queryint_active_var1 == "GFP.average"){
+        updateSelectInput(session, "queryint_active_var2", choices = c("Vitality" = "Vitality.average"))
+      }else{
+        updateSelectInput(session, "queryint_active_var2", choices = c("GFP" = "GFP.average"))
+      }
+      
+      
+      if(input$seldata_query1_int == "D1"){
+        updateSliderInput(session, "thresh_active_integ1", "Threshold fraction greater than CTRL (%)",
+                          min = 100, max = 300, value = 200, step = 10)
+      }else{
+        name = gsub(".average", "",input$queryint_active_var1)
+        min = ifelse(name == "Concentration", 100, 10)
+        max = ifelse(name == "Concentration", 300, ifelse(name == "GFP",100,200))
+        type_ctrl = ifelse(name == "Concentration", "CTRL", "CTRL+")
+        updateSliderInput(session, "thresh_active_integ1",
+                          paste0("Threshold fraction greater than ",type_ctrl," (%)"),
+                          min = min, max = max, value = round((min+max)/2,-1), step = 10)
+      }
+    }
+
+  })
 
 
-  #to update the button
+  ## second query slider and active var
+  observeEvent(c(input$seldata_query2_int, input$queryint2_active_var1),{
+    if(!is.null(input$queryint2_active_var1)){
+      if(input$seldata_query2_int == "D1" || input$queryint2_active_var1 == "GFP.average"){
+        updateSelectInput(session, "queryint2_active_var2", choices = c("Vitality" = "Vitality.average"))
+      }else{
+        updateSelectInput(session, "queryint2_active_var2", choices = c("GFP" = "GFP.average"))
+      }
+      
+      #update slider threshold
+      if(input$seldata_query2_int == 'D1'){
+        updateSliderInput(session, "thresh_active2_integ1",
+                          "Threshold fraction greater than CTRL (%)",
+                          min = 100, max = 300, value = 200, step = 10)
+      }else{
+        min = ifelse(input$queryint2_active_var1 == "Concentration.average", 100, 10)
+        max = ifelse(input$queryint2_active_var1 == "Concentration.average", 300,
+                     ifelse(input$queryint2_active_var1 == "GFP.average",100,200))
+        type_ctrl = ifelse(input$queryint2_active_var1 == "Concentration.average", "CTRL", "CTRL+")
+        updateSliderInput(session, "thresh_active2_integ1",
+                          paste0("Threshold fraction greater than ",type_ctrl," (%)"),
+                          min = min, max = max, value = round((min+max)/2,-1), step = 10)
+      }
+    }
+  })
+
+
+  
+
+  #to update the button FIRST query
   observeEvent(input$add_queryint_active_var,{
     if(input$add_queryint_active_var %%2 == 1){
       updateButton(session, "add_queryint_active_var",label = "", style = "danger", icon("minus")) 
@@ -3163,101 +3275,7 @@ app_server <- function( input, output, session ) {
   })
   
   
-  
-  #output to show the second column
-  output$checkadd_queryint_active_var = reactive({
-    if(input$add_queryint_active_var %%2 != 0 && input$seldata_query1_int == 'TREM2'){
-      "twovar"
-    }else{"onevar"}
-  })
-  outputOptions(output, "checkadd_queryint_active_var", suspendWhenHidden = FALSE)
-  
-
-  
-  observeEvent(input$queryint_active_var1,{
-    name = gsub(".average", "",input$queryint_active_var1)
-    min = ifelse(name == "Concentration", 100, 10)
-    max = ifelse(name == "Concentration", 300, ifelse(name == "GFP",100,200))
-    type_ctrl = ifelse(name == "Concentration", "CTRL", "CTRL+")
-    updateSliderInput(session, "thresh_active_integ1", 
-                      paste0("Threshold fraction greater than ",type_ctrl," (%)"), 
-                      min = min, max = max, value = round((min+max)/2,-1), step = 10)
-  })
-  
-  
-
-  
-  
-  
-  
-  
-  
-  #### options for second query ####
-  
-  
-  ### cytotoxicitiy
-  observeEvent(dataquery_cyto(),{
-    updateSelectInput(session, "filtmod_query_cyto_integ", choices = c("All",unique(dataquery_cyto()$Model_type)))
-    
-    cols = dataquery_cyto() %>% dplyr::select(where(is.double)) %>% dplyr::select(-Dose) %>% colnames()
-    updateSelectInput(session, "selcol_query_cyto_integ", choices = cols)
-
-  })
-  
-  
-  
-  
-  ### TREM2 and SEAP
-  
-  
-  output$uiactivefrac_q2 = renderUI({
-    req(input$seldata_query2_int)
-
-    if(input$seldata_query2_int == "SEAP"){
-      column(width = 12, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("Concentration" = "Concentration.average")))
-    }else{
-      column(width = 8, selectInput("queryint2_active_var1", "Active fractions in:",choices = c("GFP" = "GFP.average", "Vitality" = "Vitality.average")))
-    }
-  })
-  
-  
- 
-  observeEvent(input$seldata_query2_int,{
-    #update modeltype for seap
-    updateSelectInput(session,"queryinteg2_seap_modtype", choices = unique(loaded_database_seap()$mydataset$Model_type))
-  })
-  
-  
-
-
-  output$check_lengmodint2_andor = eventReactive(input$queryinteg2_seap_modtype,{
-    req(input$queryinteg2_seap_modtype)
-    length(input$queryinteg2_seap_modtype)
-  })
-  outputOptions(output, "check_lengmodint2_andor", suspendWhenHidden = FALSE)
-  
-  
-  observeEvent(input$queryint2_active_var1,{
-    if(input$queryint2_active_var1 == "GFP.average"){
-      updateSelectInput(session, "queryint2_active_var2", choices = c("Vitality" = "Vitality.average"))
-    }else{
-      updateSelectInput(session, "queryint2_active_var2", choices = c("GFP" = "GFP.average"))
-    }
-    
-    #update slider threshold
-    min = ifelse(input$queryint2_active_var1 == "Concentration.average", 100, 10)
-    max = ifelse(input$queryint2_active_var1 == "Concentration.average", 300, 
-                 ifelse(input$queryint2_active_var1 == "GFP.average",100,200))
-    type_ctrl = ifelse(input$queryint2_active_var1 == "Concentration.average", "CTRL", "CTRL+")
-    updateSliderInput(session, "thresh_active2_integ1", 
-                      paste0("Threshold fraction greater than ",type_ctrl," (%)"), 
-                      min = min, max = max, value = round((min+max)/2,-1), step = 10)
-  })
-  
-
-  
-  
-  #to update the button
+  #to update the button SECOND QUERY
   observeEvent(input$add_queryint2_active_var,{
     if(input$add_queryint2_active_var %%2 == 1){
       updateButton(session, "add_queryint2_active_var",label = "", style = "danger", icon("minus")) 
@@ -3267,26 +3285,32 @@ app_server <- function( input, output, session ) {
   })
   
   
-  #output to show the second column
+  
+  #output to show the second column FIRST QUERY
+  output$checkadd_queryint_active_var = reactive({
+    if(input$add_queryint_active_var %%2 != 0 && (input$seldata_query1_int == 'TREM2' || input$seldata_query1_int == 'D1')){
+      "twovar"
+    }else{"onevar"}
+  })
+  outputOptions(output, "checkadd_queryint_active_var", suspendWhenHidden = FALSE)
+  
+  
+  #output to show the second column SECOND QUERY
   output$checkadd_queryint2_active_var = reactive({
-    if(input$add_queryint2_active_var %%2 != 0 && input$seldata_query2_int == 'TREM2'){
+    if(input$add_queryint2_active_var %%2 != 0 && (input$seldata_query2_int == 'TREM2' || input$seldata_query2_int == 'D1')){
       "twovar"
     }else{"onevar"}
   })
   outputOptions(output, "checkadd_queryint2_active_var", suspendWhenHidden = FALSE)
   
-  
-  
 
 
   
   
   
   
-  ##### final query #####
-  
-  
-  ###first query integration
+
+  ####first query integration ####
   
   first_query_integ = eventReactive(input$go_queryint,{
     req(loaded_database_seap())
@@ -3331,36 +3355,119 @@ app_server <- function( input, output, session ) {
         firstquery = query_active1
       }
       
+      
+      #### D1
+    }else if(input$seldata_query1_int == "D1"){
+      req(data_D1())
+
+      validate(need(input$queryint_active_var1, "Select at least one MFI."))
+      
+
+      query_active1 = queryD1(data_D1 = data_D1(),
+                              MFI = input$queryint_active_var1,
+                              operation = "greater than or equal",
+                              thresh = input$thresh_active_integ1/100,
+                              andor = "OR",
+                              final_msg = FALSE)
+      
+
+      #2 variables
+      if(input$add_queryint_active_var %%2 != 0){
+        
+        query_active2 = queryD1(data_D1 = data_D1(),
+                                MFI = input$queryint_active_var2,
+                                operation = "greater than or equal",
+                                thresh = input$thresh_active_integ2/100,
+                                andor = "OR",
+                                final_msg = FALSE)
+        
+
+        firstquery = intersect(query_active1, query_active2)
+        
+      }else{
+        firstquery = query_active1
+      }
+      
+
+      
+      ### CYTO
+    }else if(input$seldata_query1_int == "Cytotoxicity"){
+      req(data())
+      data = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
+      
+      validate(need(input$filtmod_query_cyto_integ1, "Select something in the Model_type filtering."))
+
+      if(!("All" %in% input$filtmod_query_cyto_integ1)){
+        data = dplyr::filter(data, Model_type %in% input$filtmod_query_cyto_integ1)
+      }
+      
+      if(input$selop_query_cyto_integ1 %in% c("max","min")){
+        mess = paste("&nbsp;Searching for fractions with", input$selcol_query_cyto_integ1, input$selop_query_cyto_integ1,"...")
+      }else{
+        mess = paste("&nbsp;Searching for fractions with", input$selcol_query_cyto_integ1, input$selop_query_cyto_integ1,input$thresh_query_cyto_integ1,"...")
+      }
+      
+      showNotification(tagList(icon("gears"), HTML(mess)), type = "default")
+      
+      firstquery = lapply(unique(data$Model_type), function(x){
+        operation_filtering(data = dplyr::filter(data, Model_type == x), 
+                            column = input$selcol_query_cyto_integ1,
+                            operator = input$selop_query_cyto_integ1,
+                            value = input$thresh_query_cyto_integ1,
+                            n_query = "one",
+                            type_output = "raw")
+      }) %>% {Reduce(rbind, .)}
+      
+      
+      if(input$queryinteg1_cyto_modtype_andor == "AND"){
+        firstquery = dplyr::mutate(firstquery, sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) 
+        
+        #take all the duplicated
+        b = firstquery %>% group_by(sample) %>% dplyr::summarise(n = n()) %>% dplyr::filter(n >= length(unique(data$Model_type)))
+        if(nrow(b) != 0){
+          #check if really present in each model type
+          firstquery = lapply(b$sample, function(s){
+            temp = firstquery %>% dplyr::filter(sample %in% s)
+            if(all(unique(data$Model_type) %in% unique(temp$Model_type))) temp else NULL
+          })%>% {Reduce(rbind, .)} %>% dplyr::select(-sample)
+        }else{
+          firstquery <- dplyr::select(firstquery, -sample)[0,]
+        }
+      }
+
+    }
+
+    
+    if(nrow(firstquery) == 0){
+      showNotification(tagList(icon("warning"), HTML("&nbsp;No samples satisfy the first query conditions. 
+                                                     Try to change the thresholds or use 'OR' instead of 'AND'")), type = "warning")
     }
     
-    suffx1 = paste0(".",input$seldata_query1_int)
-    
-    dplyr::rename_with(firstquery, ~paste0(.x, suffx1), .cols = -c(Product_Family, Product, Dose, Purification))
+    #add suffix
+    suffx1 = paste0(".",ifelse(input$seldata_query1_int == "Cytotoxicity", "CYTO", input$seldata_query1_int))
+    dplyr::rename_with(firstquery, ~paste0(.x, suffx1), .cols = -c(Product, Product_Family, Dose, Purification))
     
   })
   
   
   
   
-  ###### second query integration
+  ###### second query integration ####
   
   second_query_integ = eventReactive(input$go_queryint,{
     req(dataquery_cyto())
     req(loaded_database_seap())
     req(loaded_database_trem2())
     
+    if(nrow(first_query_integ()) == 0) return(NULL)
+    
     ### CYTO
     if(input$seldata_query2_int == "Cytotoxicity"){
-      req(dataquery_cyto())
-      data = dataquery_cyto()
+      req(data())
+      data = data() %>% dplyr::filter(!if_any("Product_Family", ~grepl("CTRL",.)))
 
       validate(need(input$filtmod_query_cyto_integ, "Select something in the Model_type filtering."))
-      # if("All" %in% input$filtmod_query_cyto_integ){
-      #   leng_modtype = length(unique(dataquery_cyto()$Model_type))
-      # }else{
-      #   leng_modtype = length(input$filtmod_query_cyto_integ)
-      # }
-      
+
       if(!("All" %in% input$filtmod_query_cyto_integ)){
         data = dplyr::filter(data, Model_type %in% input$filtmod_query_cyto_integ)
       }
@@ -3380,17 +3487,27 @@ app_server <- function( input, output, session ) {
                             value = input$thresh_query_cyto_integ,
                             n_query = "one",
                             type_output = "raw")
-      }) %>% {Reduce(rbind, .)}
+      }) %>% {Reduce(rbind, .)} 
       
- 
-      # if(input$andor_query_cyto == "AND"){
-      #   joined = temp$summ %>% dplyr::group_by(Product_Family) %>% dplyr::summarise(n = n()) %>% 
-      #     dplyr::filter(n == leng_modtype) %>% dplyr::pull(Product_Family)
-      #   
-      #   temp = lapply(temp, function(x) x %>% dplyr::filter(Product_Family %in% joined) %>% dplyr::arrange(Product_Family))
-      # }
+
+      if(input$queryinteg2_cyto_modtype_andor == "AND"){
+        secondquery = dplyr::mutate(secondquery, sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) 
+        
+        #take all the duplicated
+        b = secondquery %>% group_by(sample) %>% dplyr::summarise(n = n()) %>% dplyr::filter(n >= length(unique(data$Model_type)))
+        if(nrow(b) != 0){
+          #check if really present in each model type
+          secondquery = lapply(b$sample, function(s){
+            temp = secondquery %>% dplyr::filter(sample %in% s)
+            if(all(unique(data$Model_type) %in% unique(temp$Model_type))) temp else NULL
+          })%>% {Reduce(rbind, .)} %>% dplyr::select(-sample)
+        }else{
+          secondquery <- dplyr::select(secondquery, -sample)[0,]
+        }
+      }
+
       
-      
+
     #### SEAP 
     }else if(input$seldata_query2_int == "SEAP"){
       
@@ -3428,14 +3545,47 @@ app_server <- function( input, output, session ) {
                                           thresh_ctrl = input$thresh_active2_integ2,
                                           final_msg = FALSE)
         secondquery = intersect(query_active21, query_active22)
-        #showNotification(tagList(icon("check"), HTML("&nbsp;Completed! Found ", length(unique(secondquery$Product)), " fractions.")), type = "message")
-        
-        
+
       }else{
         secondquery = query_active21
       }
+      
+      #### D1
+    }else{
+      req(data_D1())
+      data = data_D1()
+      
+      validate(need(input$queryint2_active_var1, "Select at least one MFI."))
+      
+      
+      query_active1 = queryD1(data_D1 = data,
+                              MFI = input$queryint2_active_var1,
+                              operation = "greater than or equal",
+                              thresh = input$thresh_active2_integ1/100,
+                              andor = "OR",
+                              final_msg = FALSE)
+
+      #2 variables
+      if(input$add_queryint2_active_var %%2 != 0){
+        query_active2 = queryD1(data_D1 = data,
+                                MFI = input$queryint2_active_var2,
+                                operation = "greater than or equal",
+                                thresh = input$thresh_active2_integ2/100,
+                                andor = "OR",
+                                final_msg = FALSE)
+        
+        secondquery = intersect(query_active1, query_active2)
+        
+      }else{
+        secondquery = query_active1
+      }
+      
     }
     
+    if(nrow(secondquery) == 0){
+      showNotification(tagList(icon("warning"), HTML("&nbsp;No samples satisfy the second query conditions. 
+                                                     Try to change the thresholds or use 'OR' instead of 'AND'")), type = "warning")
+    }
     
     #add suffix
     suffx2 = paste0(".",ifelse(input$seldata_query2_int == "Cytotoxicity", "CYTO", input$seldata_query2_int))
@@ -3523,15 +3673,21 @@ app_server <- function( input, output, session ) {
     }else if(input$seldata_query1_int == "TREM2"){
       req(loaded_database_trem2())
       data1 = loaded_database_trem2()$mydataset
+    }else if(input$seldata_query1_int == "D1"){
+      req(data_D1())
+      data1 = data_D1()
+    }else{
+      req(dataquery_cyto())
+      data1 = dataquery_cyto()
     }
-    fir_orig = paste0(data1$Product_Family, data1$Product, data1$Dose, data1$Purification)
+    fir_orig = unique(paste(data1$Product_Family, data1$Product, data1$Dose, data1$Purification, sep = "."))
 
     ### results first query
     sample_first = first_query_integ() %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
-      dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = "."))
+      dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>% dplyr::distinct()
     
     ### results second query
-    sample_sec = paste(second_query_integ()$Product_Family, second_query_integ()$Product, second_query_integ()$Dose, second_query_integ()$Purification, sep = ".")
+    sample_sec = unique(paste(second_query_integ()$Product_Family, second_query_integ()$Product, second_query_integ()$Dose, second_query_integ()$Purification, sep = "."))
     
     ### Original dataset second query
     if(input$seldata_query2_int == "Cytotoxicity"){
@@ -3543,8 +3699,11 @@ app_server <- function( input, output, session ) {
     }else if(input$seldata_query2_int == "TREM2"){
       req(loaded_database_trem2())
       sample_sec_orig = loaded_database_trem2()$mydataset
+    }else{
+      req(data_D1())
+      sample_sec_orig = data_D1()
     }
-    sample_sec_orig = paste(sample_sec_orig$Product_Family, sample_sec_orig$Product, sample_sec_orig$Dose, sample_sec_orig$Purification, sep = ".")
+    sample_sec_orig = unique(paste(sample_sec_orig$Product_Family, sample_sec_orig$Product, sample_sec_orig$Dose, sample_sec_orig$Purification, sep = "."))
     
     list(original_first = fir_orig,
          first_query = sample_first,
@@ -3587,26 +3746,27 @@ app_server <- function( input, output, session ) {
     cm_degree = ComplexHeatmap::comb_degree(comb_mat)
     aux_color <- grDevices::colorRampPalette(RColorBrewer::brewer.pal(12,"Paired"))
     
-    ht = ComplexHeatmap::UpSet(comb_mat,  set_order = c(1,2,3,4), pt_size = grid::unit(5,"mm"), lwd = 3,
+    ht = ComplexHeatmap::UpSet(comb_mat, set_order = c(1,2,3,4), pt_size = grid::unit(5.5,"mm"), lwd = 3.5,
                                comb_col = aux_color(length(cm_degree)),
                                #comb_order = order(cm_degree, -cs), #inverte ordine barre
                                top_annotation = HeatmapAnnotation(
                                  "Intersection size" = ComplexHeatmap::anno_barplot(cs,
-                                                                                    ylim = c(0, max(cs)*1.1),
+                                                                                    ylim = c(0, max(cs)*1.03),
                                                                                     border = FALSE,
                                                                                     gp = grid::gpar(fill = aux_color(length(cm_degree))),
-                                                                                    height = grid::unit(10, "cm")
+                                                                                    height = grid::unit(8, "cm")
                                  ),
                                  annotation_name_side = "left",
                                  annotation_name_rot = 0),
-                               right_annotation = upset_right_annotation(comb_mat, add_numbers = TRUE)
+                               right_annotation = upset_right_annotation(comb_mat, add_numbers = TRUE, width = grid::unit(5, "cm"),
+                                                                         numbers_gp = gpar(fontsize = 12))
     )
     ht = ComplexHeatmap::draw(ht)
     od = ComplexHeatmap::column_order(ht)
     ComplexHeatmap::decorate_annotation("Intersection size", {
       grid::grid.text(cs[od], x = seq_along(cs), y = grid::unit(cs[od], "native") + grid::unit(4, "pt"),
                       default.units = "native", just = c("center", "bottom"),
-                      gp = grid::gpar(fontsize = 10, col = "#404040"), rot = 0)
+                      gp = grid::gpar(fontsize = 12, col = "#404040"), rot = 0)
     })
     
   })

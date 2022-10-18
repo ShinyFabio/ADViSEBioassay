@@ -1190,11 +1190,38 @@ app_ui <- function(request) {
                 width = NULL, status = "primary",
                 fluidRow(
                   #select the database
-                  column(2, awesomeRadio("seldata_query1_int", "Database", choices = c("TREM2", "SEAP"), selected = "TREM2")),
+                  column(2, awesomeRadio("seldata_query1_int", "Database", choices = c("Cytotoxicity","TREM2", "SEAP", "D1"), selected = "TREM2")),
                   
-                  #### TREM2 and SEAP FIRST ####
+                  #### cytotoxicity ####
                   conditionalPanel(
-                    "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'SEAP'",
+                    "input.seldata_query1_int == 'Cytotoxicity'",
+                    fluidRow(
+                      column(
+                        3, 
+                        selectInput("filtmod_query_cyto_integ1", "Filter Model type", choices = "", multiple = TRUE),
+                        conditionalPanel(
+                          "output.check_lengmodint1_cyto_andor > 1",
+                          awesomeRadio("queryinteg1_cyto_modtype_andor", label = NULL, choices = c("OR","AND"), inline = TRUE))
+                        ),
+                      column(2, selectInput("selcol_query_cyto_integ1", "Column", choices = "")),
+                      column(2, selectInput("selop_query_cyto_integ1", "Operator", 
+                                            choices = c("max", "min", "greater than", 
+                                                        "greater than or equal", "equal", "less than or equal", "less than"))
+                      ),
+                      column(2,
+                             conditionalPanel(
+                               condition = "input.selop_query_cyto_integ1 != 'max' && input.selop_query_cyto1 != 'min'",
+                               numericInput("thresh_query_cyto_integ1", "Threshold", value = 50))
+                      )
+                    )
+                  ),
+                  
+                  
+                  
+
+                  #### TREM2 and SEAP and D1 FIRST ####
+                  conditionalPanel(
+                    "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'SEAP' || input.seldata_query1_int == 'D1'",
 
                     #modeltype for seap
                     conditionalPanel("input.seldata_query1_int == 'SEAP'",
@@ -1211,7 +1238,7 @@ app_ui <- function(request) {
                       fluidRow(
                         uiOutput("uiactivefrac_q1"),
                         conditionalPanel(
-                          "input.seldata_query1_int == 'TREM2'",
+                          "input.seldata_query1_int == 'TREM2' || input.seldata_query1_int == 'D1'",
                           column(4, br(),shinyBS::bsButton("add_queryint_active_var", label = "", style="success", icon("plus")))
                         )
                       ),
@@ -1221,8 +1248,6 @@ app_ui <- function(request) {
                         fluidRow(column(8,br(),selectInput("queryint_active_var2", "Active fractions in:", choices = "")))
                       )
                   ),
-                  
-
                   
                   column(4,
                     sliderInput("thresh_active_integ1", "", min = 10, max = 100, value = 50),
@@ -1243,13 +1268,19 @@ app_ui <- function(request) {
 
               box(width = NULL, status = "primary",
                   fluidRow(
-                    column(2, awesomeRadio("seldata_query2_int", "Database", choices = c("Cytotoxicity","TREM2", "SEAP"))),
+                    column(2, awesomeRadio("seldata_query2_int", "Database", choices = c("Cytotoxicity","TREM2", "SEAP", "D1"))),
                     
                     #### cytotoxicity ####
                     conditionalPanel(
                       "input.seldata_query2_int == 'Cytotoxicity'",
                       fluidRow(
-                        column(3, selectInput("filtmod_query_cyto_integ", "Filter Model type", choices = "", multiple = TRUE)),
+                        column(
+                          3, 
+                          selectInput("filtmod_query_cyto_integ", "Filter Model type", choices = "", multiple = TRUE),
+                          conditionalPanel(
+                            "output.check_lengmodint2_cyto_andor > 1",
+                            awesomeRadio("queryinteg2_cyto_modtype_andor", label = NULL, choices = c("OR","AND"), inline = TRUE))
+                          ),
                         column(2, selectInput("selcol_query_cyto_integ", "Column", choices = "")),
                         column(2, selectInput("selop_query_cyto_integ", "Operator", 
                                               choices = c("max", "min", "greater than", 
@@ -1263,9 +1294,9 @@ app_ui <- function(request) {
                       )
                     ),
                     
-                    #### TREM2 and SEAP FIRST ####
+                    #### TREM2 and SEAP and D1 SECOND ####
                     conditionalPanel(
-                      "input.seldata_query2_int == 'TREM2' || input.seldata_query2_int == 'SEAP'",
+                      "input.seldata_query2_int == 'TREM2' || input.seldata_query2_int == 'SEAP' || input.seldata_query2_int == 'D1'",
                       
                       #modeltype for seap
                       conditionalPanel(
@@ -1284,7 +1315,7 @@ app_ui <- function(request) {
                         fluidRow(
                           uiOutput("uiactivefrac_q2"),
                           conditionalPanel(
-                            "input.seldata_query2_int == 'TREM2'",
+                            "input.seldata_query2_int == 'TREM2' || input.seldata_query2_int == 'D1'",
                             column(4, br(),shinyBS::bsButton("add_queryint2_active_var", label = "", style="success", icon("plus")))
                           )
                         ),
@@ -1336,14 +1367,14 @@ app_ui <- function(request) {
                 tabPanel(
                   "Datatable",icon = icon("table"),
                   fluidPage(
-                    awesomeRadio("seltypedt_finalquery", label = "", choices = c("Table with results", "Truth table", "Upset plot"), inline = TRUE),
-                    conditionalPanel("input.seltypedt_finalquery == 'Table with results'",
+                    awesomeRadio("seltypedt_finalquery", label = "", choices = c("Output query", "Additional information", "Upset plot"), inline = TRUE),
+                    conditionalPanel("input.seltypedt_finalquery == 'Output query'",
                                      shinycssloaders::withSpinner(DTOutput("query_integ_dt"))),
-                    conditionalPanel("input.seltypedt_finalquery == 'Truth table'",
+                    conditionalPanel("input.seltypedt_finalquery == 'Additional information'",
                                      shinycssloaders::withSpinner(DTOutput("query_integ_dt_truth"))),
                     conditionalPanel("input.seltypedt_finalquery == 'Upset plot'",
-                                     awesomeRadio("type_upset", "Mode upset plot", choices = c("distinct", "intersect")),
-                                     plotOutput("upset_queryinteg"))
+                                     awesomeRadio("type_upset", "Mode upset plot", choices = c("distinct", "intersect"), inline =T),
+                                     plotOutput("upset_queryinteg", height = "450px"))
                   )
 
                          
