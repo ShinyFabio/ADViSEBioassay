@@ -1373,7 +1373,6 @@ app_ui <- function(request) {
                     conditionalPanel("input.seltypedt_finalquery == 'Additional information'",
                                      shinycssloaders::withSpinner(DTOutput("query_integ_dt_truth"))),
                     conditionalPanel("input.seltypedt_finalquery == 'Upset plot'",
-                                     awesomeRadio("type_upset", "Mode upset plot", choices = c("distinct", "intersect"), inline =T),
                                      plotOutput("upset_queryinteg", height = "450px"))
                   )
 
@@ -1388,7 +1387,8 @@ app_ui <- function(request) {
                       selectInput("bubb_integ_X", "X axis variable", choices = ""),
                       selectInput("bubb_integ_Y", "Y axis variable", choices = ""),
                       selectInput("bubb_integ_fill", "Fill variable", choices = ""),
-                      selectInput("bubb_integ_size", "Size variable", choices = "")
+                      selectInput("bubb_integ_size", "Size variable", choices = ""),
+                      sliderInput("bubb_jitter", "Jitter",min = 0, max = 5, value = 0.5, step = 0.2)
                     ),
                     mainPanel(
                       width = 9,

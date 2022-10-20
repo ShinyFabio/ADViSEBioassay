@@ -3639,13 +3639,13 @@ app_server <- function( input, output, session ) {
     temp = ggplot(query_integr(), aes_string(x= input$bubb_integ_X, y = input$bubb_integ_Y, label = "Product"))
     
     if(input$bubb_integ_fill == "None" && input$bubb_integ_size == "None"){
-      temp = temp + geom_point()
+      temp = temp + geom_jitter(alpha = 0.5,width = input$bubb_jitter, height = input$bubb_jitter)
     }else if(input$bubb_integ_fill != "None" && input$bubb_integ_size == "None"){
-      temp = temp + geom_point(aes_string(color = input$bubb_integ_fill))
+      temp = temp + geom_jitter(aes_string(color = input$bubb_integ_fill), alpha = 0.5,width = input$bubb_jitter, height = input$bubb_jitter)
     }else if(input$bubb_integ_fill == "None" && input$bubb_integ_size != "None"){
-      temp = temp + geom_point(aes_string(size = input$bubb_integ_size))
+      temp = temp + geom_jitter(aes_string(size = input$bubb_integ_size), alpha = 0.5,width = input$bubb_jitter, height = input$bubb_jitter)
     }else{
-      temp = temp + geom_point(aes_string(color = input$bubb_integ_fill, size = input$bubb_integ_size))
+      temp = temp + geom_jitter(aes_string(color = input$bubb_integ_fill, size = input$bubb_integ_size), alpha = 0.5,width = input$bubb_jitter, height = input$bubb_jitter)
     }
     
     plotly::ggplotly(temp)
@@ -3666,25 +3666,32 @@ app_server <- function( input, output, session ) {
     req(first_query_integ())
     req(second_query_integ())
 
+    #dataframe joined
+    dataf <- dplyr::full_join(firstquery2, secondquery, by = c("Product", "Product_Family", "Dose", "Purification")) %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
+      dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>% dplyr::distinct()
+    
+    
     ### original dataset first query
     if(input$seldata_query1_int == "SEAP"){
       req(loaded_database_seap())
-      data1 = loaded_database_seap()$mydataset
+      fir_orig = loaded_database_seap()$mydataset
     }else if(input$seldata_query1_int == "TREM2"){
       req(loaded_database_trem2())
-      data1 = loaded_database_trem2()$mydataset
+      fir_orig = loaded_database_trem2()$mydataset
     }else if(input$seldata_query1_int == "D1"){
       req(data_D1())
-      data1 = data_D1()
+      fir_orig = data_D1()
     }else{
       req(dataquery_cyto())
-      data1 = dataquery_cyto()
+      fir_orig = dataquery_cyto()
     }
-    fir_orig = unique(paste(data1$Product_Family, data1$Product, data1$Dose, data1$Purification, sep = "."))
+    fir_orig <- dplyr::filter(fir_orig, !if_any("Product_Family", ~grepl("CTRL",.)))
+    fir_orig = unique(paste(fir_orig$Product_Family, fir_orig$Product, fir_orig$Dose, fir_orig$Purification, sep = "."))
 
+    
     ### results first query
-    sample_first = first_query_integ() %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
-      dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>% dplyr::distinct()
+    sample_first = unique(paste(first_query_integ()$Product_Family, first_query_integ()$Product, first_query_integ()$Dose, first_query_integ()$Purification, sep = "."))
+    
     
     ### results second query
     sample_sec = unique(paste(second_query_integ()$Product_Family, second_query_integ()$Product, second_query_integ()$Dose, second_query_integ()$Purification, sep = "."))
@@ -3703,12 +3710,15 @@ app_server <- function( input, output, session ) {
       req(data_D1())
       sample_sec_orig = data_D1()
     }
+    sample_sec_orig <- dplyr::filter(sample_sec_orig, !if_any("Product_Family", ~grepl("CTRL",.)))
     sample_sec_orig = unique(paste(sample_sec_orig$Product_Family, sample_sec_orig$Product, sample_sec_orig$Dose, sample_sec_orig$Purification, sep = "."))
     
-    list(original_first = fir_orig,
+    list(dataf = dataf,
+         original_first = fir_orig,
          first_query = sample_first,
          original_second = sample_sec_orig,
          second_query = sample_sec)
+    
   })
   
   
@@ -3716,31 +3726,36 @@ app_server <- function( input, output, session ) {
   output$query_integ_dt_truth = renderDT({
     req(truth_upset_data())
     
-    truth = truth_upset_data()$first_query %>% dplyr::mutate(sec_orig = case_when(sample %in% truth_upset_data()$original_second ~ yes_icon, TRUE ~ no_icon), 
-                                           sample_sec = case_when(sample %in% truth_upset_data()$second_query ~ yes_icon, TRUE ~ no_icon)) %>% 
-      dplyr::mutate(sample = yes_icon)
+    truth <- truth_upset_data()$dataf %>% dplyr::mutate(fir_orig = case_when(sample %in% truth_upset_data()$original_first ~ yes_icon, TRUE ~ no_icon),
+                                                      sample_first = case_when(sample %in% truth_upset_data()$first_query ~ yes_icon, TRUE ~ no_icon),
+                                                      sec_orig = case_when(sample %in% truth_upset_data()$original_second ~ yes_icon, TRUE ~ no_icon), 
+                                                      sample_sec = case_when(sample %in% truth_upset_data()$second_query ~ yes_icon, TRUE ~ no_icon)) %>% 
+      dplyr::select(-sample)
     
-    names(truth)[names(truth) == "sample"] <- paste0(input$seldata_query1_int, ".query")
+
+
+    names(truth)[names(truth) == "fir_orig"] <- paste0(input$seldata_query1_int, ".original")
+    names(truth)[names(truth) == "sample_first"] <- paste0(input$seldata_query1_int, ".query")
+
     names(truth)[names(truth) == "sec_orig"] <- paste0(input$seldata_query2_int, ".original")
     names(truth)[names(truth) == "sample_sec"] <- paste0(input$seldata_query2_int, ".query")
 
     truth
     
   }, selection = "single", escape = FALSE, server = FALSE, rownames = FALSE, class = 'cell-border stripe',
-  options = list(lengthMenu = c(10, 15, 20, 25, 50), pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 4:6))))
+  options = list(lengthMenu = c(10, 15, 20, 25, 50), pageLength = 15, columnDefs = list(list(className = 'dt-center', targets = 4:7))))
   
   
   
   output$upset_queryinteg = renderPlot({
     req(truth_upset_data())
     
-    lt = truth_upset_data()
-    lt$first_query = lt$first_query$sample
-    
+    lt = truth_upset_data()[2:5]
+
     names(lt) = c(paste0(input$seldata_query1_int, ".original"), paste0(input$seldata_query1_int, ".query"), 
                   paste0(input$seldata_query2_int, ".original"), paste0(input$seldata_query2_int, ".query"))
     
-    comb_mat = ComplexHeatmap::make_comb_mat(lt, mode = input$type_upset)
+    comb_mat = ComplexHeatmap::make_comb_mat(lt, mode = "distinct")
     
     cs = ComplexHeatmap::comb_size(comb_mat)
     cm_degree = ComplexHeatmap::comb_degree(comb_mat)
