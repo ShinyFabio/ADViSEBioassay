@@ -3667,7 +3667,7 @@ app_server <- function( input, output, session ) {
     req(second_query_integ())
 
     #dataframe joined
-    dataf <- dplyr::full_join(firstquery2, secondquery, by = c("Product", "Product_Family", "Dose", "Purification")) %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
+    dataf <- dplyr::full_join(first_query_integ(), second_query_integ(), by = c("Product", "Product_Family", "Dose", "Purification")) %>% dplyr::select(Product_Family, Product, Dose, Purification) %>% 
       dplyr::mutate(sample = paste(Product_Family, Product, Dose, Purification, sep = ".")) %>% dplyr::distinct()
     
     
