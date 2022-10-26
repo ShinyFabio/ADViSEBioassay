@@ -3021,10 +3021,10 @@ app_server <- function( input, output, session ) {
     req(input$infoprod_select_button)
     
     #for package
-    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
+    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/app/")
     
     #for dev
-    filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
+    #filepath = paste0(base::system.file(package = "ADViSEBioassay"),"/inst/app/")
     
     prod_fam = unlist(strsplit(input[["infoprod_select_button"]], "_"))[2]
     photo_path = paste0("www/foto_organismi/", prod_fam, ".jpg")
