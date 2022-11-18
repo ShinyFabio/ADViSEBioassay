@@ -42,17 +42,17 @@ app_ui <- function(request) {
         sidebarMenu(
           id = "sidebarmenu",
           menuItem("Home", tabName = "home", icon = icon("house")),
-          menuItem("D1", tabName = "d1tab", icon = icon("circle"),
+          menuItem("D1", tabName = "d1tab", icon = icon("circle", class = "fa-solid"),
                    menuSubItem("Data summary", tabName = "d1summtab", icon = icon("clipboard-list")),
                    menuSubItem("Search", tabName = "d1querytab", icon = icon("magnifying-glass")),
                    menuSubItem("Explore", tabName = "d1plottab", icon = icon("chart-bar"))
                    ),
-          menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("circle"),
+          menuItem("Cytotoxicity", tabName = "cytotab",icon = icon("circle", class = "fa-solid"),
                    menuSubItem("Data summary", tabName = "cytosummtab", icon = icon("clipboard-list")),
                    menuSubItem("Search", tabName = "cytoquerytab", icon = icon("magnifying-glass")),
                    menuSubItem("Explore", tabName = "cytoplottab", icon = icon("chart-bar"))
                    ),
-          menuItem("Reporter", tabName = "repotab", icon = icon("circle"),
+          menuItem("Reporter", tabName = "repotab", icon = icon("circle", class = "fa-solid"),
                    selectInput("sel_reporter", tags$span(style="color: white;","Select Data Type"), choices = c("TREM2", "SEAP")),
                    menuSubItem("Data summary", tabName = "reposummtab", icon = icon("clipboard-list")),
                    menuSubItem("Search", tabName = "repoquerytab", icon = icon("magnifying-glass")),
