@@ -1388,7 +1388,7 @@ app_ui <- function(request) {
                       selectInput("bubb_integ_Y", "Y axis variable", choices = ""),
                       selectInput("bubb_integ_fill", "Fill variable", choices = ""),
                       selectInput("bubb_integ_size", "Size variable", choices = ""),
-                      sliderInput("bubb_jitter", "Jitter",min = 0, max = 5, value = 0.5, step = 0.2)
+                      sliderInput("bubb_jitter", "Jitter",min = 0, max = 5, value = 0.6, step = 0.2)
                     ),
                     mainPanel(
                       width = 9,

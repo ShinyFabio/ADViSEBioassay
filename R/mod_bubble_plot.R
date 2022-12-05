@@ -39,8 +39,8 @@ mod_bubble_plot_ui <- function(id, size_choices = c("CV", "Corrected_value")){
             conditionalPanel(
               condition = "input.dose_op_bubb == 'subtract'", ns = ns,
               fluidRow(
-                column(6,selectInput(ns("subdose_bubb"), "Subtract:", choices = c("30-5"))),
-                column(6,style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("right-left"))))
+                column(7,selectInput(ns("subdose_bubb"), "Subtract:", choices = c("30-5"))),
+                column(5,style="padding-top: 5px;",br(), actionButton(ns("revdose_bubb"), icon("right-left"))))
             )
             
           )
