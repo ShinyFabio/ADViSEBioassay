@@ -86,7 +86,7 @@ check_targetfile = function(target, explist,check_back = TRUE, check_ctrl = TRUE
     
     #check presence of CTRL
     if(check_ctrl == TRUE){
-      n_ctrl = nrow(dplyr::filter(expid, Product == "CTRL"))
+      n_ctrl = nrow(dplyr::filter(expid, Product_Family == "CTRL"))
       if(n_ctrl == 1){
         print(paste0("For ", i, " there is only one CTRL instead of two. Check the target file."))
         if(shiny::isRunning()){

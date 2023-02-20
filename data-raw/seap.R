@@ -1,9 +1,12 @@
 library(dplyr)
+library(readxl)
 
 #### importing calibration lines ####
 
-Experiment_cal <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/SEAP/CALIBRATION SEAP/Experiment_list_SEAPCAL.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
-Target_cal <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/SEAP/CALIBRATION SEAP/target file database CALIBRATION SEAP.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Experiment_cal <- readxl::read_xlsx("data-raw/Reporter/SEAP/CALIBRATION SEAP/Experiment_list_SEAPCAL.xlsx") %>% 
+  janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Target_cal <- readxl::read_xlsx("data-raw/Reporter/SEAP/CALIBRATION SEAP/target file database CALIBRATION SEAP.xlsx") %>% 
+  janitor::remove_empty(which = c("rows", "cols"), quiet =F)
 
 
 Target_cal = check_targetfile(target = Target_cal, explist = Experiment_cal, check_ctrl = FALSE)
@@ -51,8 +54,8 @@ if (!all(file_list_cal %in% list.files(unique(Experiment_cal$Path)))){
 
 
 ##### importing files ####
-Experiment_SEAP <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/SEAP/Experiment_list_REPORTERSEAP.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
-Target_SEAP <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/SEAP/target file database REPORTER.xlsx",na = "NA") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Experiment_SEAP <- readxl::read_xlsx("data-raw/Reporter/SEAP/Experiment_list_REPORTERSEAP.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Target_SEAP <- readxl::read_xlsx("data-raw/Reporter/SEAP/target file database REPORTER.xlsx",na = "NA") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
 
 Target_SEAP = check_targetfile(target = Target_SEAP, explist = Experiment_SEAP)
 

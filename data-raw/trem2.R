@@ -1,7 +1,7 @@
 #### TREM2 ####
 library(dplyr)
-Experiment_Reporter <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/TREM2/Experiment_list_TREM2.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
-Target_Reporter <- readxl::read_xlsx("/Users/fabio/Desktop/Cytotoxicity/Reporter/TREM2/Target file TREM2.xlsx",na = "NA") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Experiment_Reporter <- readxl::read_xlsx("data-raw/Reporter/TREM2/Experiment_list_TREM2.xlsx") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
+Target_Reporter <- readxl::read_xlsx("data-raw/Reporter/TREM2/Target file TREM2.xlsx",na = "NA") %>% janitor::remove_empty(which = c("rows", "cols"), quiet =F)
 
 Target_Reporter = check_targetfile(target = Target_Reporter, explist = Experiment_Reporter, check_back = FALSE)
 
