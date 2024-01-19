@@ -62,7 +62,7 @@ Once the installation is completed, run:
 
 ``` r
 library("ADViSEBioassay")
-run_app()
+run_ADViSEBioassay()
 ```
 
 ## Funding
